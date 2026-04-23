@@ -1,21 +1,36 @@
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# ─────────────────────────────────────────────
+# JNI 브릿지 — 클래스/메서드명 변경 시 .so 연결 깨짐
+# ─────────────────────────────────────────────
+-keep class com.example.bgjz_app.security.RootDetector {
+    private native <methods>;
+    public *;
+}
 
-# If your project uses WebView with JS, uncomment the following
-# and specify the fully qualified class name to the JavaScript interface
-# class:
-#-keepclassmembers class fqcn.of.javascript.interface.for.webview {
-#   public *;
-#}
+# ─────────────────────────────────────────────
+# Retrofit + OkHttp
+# ─────────────────────────────────────────────
+-keepattributes Signature
+-keepattributes *Annotation*
+-dontwarn okhttp3.**
+-dontwarn okio.**
+-dontwarn retrofit2.**
+-keep class retrofit2.** { *; }
+-keepclassmembernames interface * {
+    @retrofit2.http.* <methods>;
+}
 
-# Uncomment this to preserve the line number information for
-# debugging stack traces.
-#-keepattributes SourceFile,LineNumberTable
+# ─────────────────────────────────────────────
+# Gson (data class 필드명 보존 — 백엔드 JSON 키와 매핑)
+# ─────────────────────────────────────────────
+-keepclassmembers class com.example.bgjz_app.data.model.** { *; }
 
-# If you keep the line number information, uncomment this to
-# hide the original source file name.
-#-renamesourcefileattribute SourceFile
+# ─────────────────────────────────────────────
+# Kotlin
+# ─────────────────────────────────────────────
+-dontwarn kotlin.**
+-keep class kotlin.Metadata { *; }
+
+# ─────────────────────────────────────────────
+# Compose (런타임 리플렉션 사용)
+# ─────────────────────────────────────────────
+-dontwarn androidx.compose.**
