@@ -25,6 +25,7 @@ data class ProductDetail(
     val viewCount: Int,
     val likeCount: Int,
     val timeAgo: String,
+    val sellerId: String,
     val sellerNickname: String,
     val sellerRegion: String,
     @DrawableRes val sellerAvatarRes: Int

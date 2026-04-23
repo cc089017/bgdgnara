@@ -15,6 +15,7 @@ interface ProductRepository {
     suspend fun deleteProduct(productId: Int): UserResult<Unit>
     suspend fun updateProductStatus(productId: Int, status: com.example.bgjz_app.data.mock.ProductStatus): UserResult<Unit>
     suspend fun uploadProductImages(productId: Int, imageUris: List<String>): UserResult<Unit>
+    suspend fun getProductsByUser(userId: String): UserResult<List<Product>>
     suspend fun likeProduct(productId: Int): UserResult<Unit>
     suspend fun unlikeProduct(productId: Int): UserResult<Unit>
 }

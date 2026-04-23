@@ -17,6 +17,7 @@ import com.example.bgjz_app.ui.screens.product.AutoPriceScreen
 import com.example.bgjz_app.ui.screens.product.ProductDetailScreen
 import com.example.bgjz_app.ui.screens.product.ProductEditScreen
 import com.example.bgjz_app.ui.screens.product.ProductRegisterScreen
+import com.example.bgjz_app.ui.screens.userprofile.UserProfileScreen
 import com.example.bgjz_app.ui.screens.splash.SplashScreen
 import com.example.bgjz_app.ui.screens.wishlist.WishlistScreen
 
@@ -36,6 +37,9 @@ sealed class Route(val path: String) {
     }
     data object ProductEdit : Route("product_edit/{productId}") {
         fun createRoute(productId: Int) = "product_edit/$productId"
+    }
+    data object UserProfile : Route("user_profile/{userId}") {
+        fun createRoute(userId: String) = "user_profile/$userId"
     }
 }
 
@@ -135,7 +139,8 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 productId = productId,
                 onBack = { navController.popBackStack() },
                 onEdit = { id -> navController.navigate(Route.ProductEdit.createRoute(id)) },
-                onDeleteSuccess = { navController.popBackStack() }
+                onDeleteSuccess = { navController.popBackStack() },
+                onSellerClick = { sellerId -> navController.navigate(Route.UserProfile.createRoute(sellerId)) }
             )
         }
         composable(
@@ -147,6 +152,17 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 productId = productId,
                 onBack = { navController.popBackStack() },
                 onSaveSuccess = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = Route.UserProfile.path,
+            arguments = listOf(navArgument("userId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val userId = backStackEntry.arguments?.getString("userId") ?: return@composable
+            UserProfileScreen(
+                userId = userId,
+                onBack = { navController.popBackStack() },
+                onProductClick = { productId -> navController.navigate(Route.ProductDetail.createRoute(productId)) }
             )
         }
     }

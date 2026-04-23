@@ -1,7 +1,7 @@
 package com.example.bgjz_app.data.model
 
 data class UserProfile(
-    val id: Int,
+    val id: String,
     val username: String,
     val nickname: String,
     val email: String,

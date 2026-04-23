@@ -77,6 +77,7 @@ fun ProductDetailScreen(
     onBack: () -> Unit,
     onEdit: (Int) -> Unit = {},
     onDeleteSuccess: () -> Unit = {},
+    onSellerClick: (String) -> Unit = {},
     viewModel: ProductDetailViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -104,7 +105,8 @@ fun ProductDetailScreen(
                     onLikeClick = { viewModel.toggleLike() },
                     onEdit = { onEdit(productId) },
                     onDelete = { viewModel.deleteProduct() },
-                    onStatusChange = { viewModel.updateStatus(it) }
+                    onStatusChange = { viewModel.updateStatus(it) },
+                    onSellerClick = { onSellerClick(uiState.product!!.sellerId) }
                 )
             }
             uiState.error != null -> {
@@ -125,7 +127,8 @@ private fun ProductDetailContent(
     onLikeClick: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
-    onStatusChange: (ProductStatus) -> Unit
+    onStatusChange: (ProductStatus) -> Unit,
+    onSellerClick: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -203,7 +206,10 @@ private fun ProductDetailContent(
 
                 // 판매자 정보
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSellerClick() }
+                        .padding(vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Image(

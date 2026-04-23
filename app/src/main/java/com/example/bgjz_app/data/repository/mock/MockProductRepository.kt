@@ -37,6 +37,7 @@ class MockProductRepository : ProductRepository {
         val categories = mapOf(1 to "디지털/가전", 2 to "디지털/가전", 3 to "디지털/가전",
             4 to "취미/게임", 5 to "디지털/가전", 6 to "생활가전", 7 to "생활용품", 8 to "스포츠/레저")
         val times = listOf("방금 전", "5분 전", "23분 전", "1시간 전", "2시간 전", "3시간 전", "어제", "2일 전")
+        val seller = MockData.sellers.find { it.id == product.sellerId } ?: MockData.sellers.first()
         return UserResult.Success(
             ProductDetail(
                 id = product.id,
@@ -51,9 +52,10 @@ class MockProductRepository : ProductRepository {
                 viewCount = (product.id * 37 + 12),
                 likeCount = likedIds.size + product.id,
                 timeAgo = times[product.id % times.size],
-                sellerNickname = MockData.currentUser.nickname,
-                sellerRegion = "서울 강남구",
-                sellerAvatarRes = MockData.currentUser.avatarRes
+                sellerId = seller.id,
+                sellerNickname = seller.nickname,
+                sellerRegion = seller.region,
+                sellerAvatarRes = seller.avatarRes
             )
         )
     }
@@ -119,6 +121,12 @@ class MockProductRepository : ProductRepository {
     override suspend fun uploadProductImages(productId: Int, imageUris: List<String>): UserResult<Unit> {
         delay(600)
         return UserResult.Success(Unit)
+    }
+
+    override suspend fun getProductsByUser(userId: String): UserResult<List<Product>> {
+        delay(400)
+        val userProducts = MockData.products.filter { it.sellerId == userId }
+        return UserResult.Success(userProducts.map { it.copy(isLiked = it.id in likedIds) })
     }
 
     override suspend fun likeProduct(productId: Int): UserResult<Unit> {

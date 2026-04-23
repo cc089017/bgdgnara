@@ -1,6 +1,7 @@
 package com.example.bgjz_app.data.repository.mock
 
 import com.example.bgjz_app.data.mock.MockData
+import com.example.bgjz_app.data.mock.Seller
 import com.example.bgjz_app.data.model.ChangePasswordRequest
 import com.example.bgjz_app.data.model.UpdateProfileRequest
 import com.example.bgjz_app.data.model.UserProfile
@@ -11,13 +12,29 @@ import kotlinx.coroutines.delay
 class MockUserRepository : UserRepository {
 
     private var mockProfile = UserProfile(
-        id = 1,
+        id = "bgjz_user",
         username = "bgjz_user",
         nickname = MockData.currentUser.nickname,
         email = MockData.currentUser.email,
         avatarUrl = null,
         region = "서울 강남구"
     )
+
+    override suspend fun getPublicProfile(userId: String): UserResult<UserProfile> {
+        delay(400)
+        val seller = MockData.sellers.find { it.id == userId }
+            ?: return UserResult.Error("유저를 찾을 수 없습니다")
+        return UserResult.Success(
+            UserProfile(
+                id = seller.id,
+                username = seller.nickname,
+                nickname = seller.nickname,
+                email = "",
+                avatarUrl = null,
+                region = seller.region
+            )
+        )
+    }
 
     override suspend fun getMyProfile(): UserResult<UserProfile> {
         delay(400)
