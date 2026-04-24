@@ -127,6 +127,42 @@
 
 ---
 
+### 타 유저 프로필 (UserProfile)
+- `UserProfileScreen.kt` — 타 유저 프로필 화면 (아바타, 닉네임, 지역, 판매 상품 그리드)
+- `UserProfileViewModel.kt` — 타 유저 프로필 + 상품 목록 로드 (`getPublicProfile`, `getProductsByUser`)
+- `UserRepository.kt` — `getPublicProfile(userId)` 인터페이스 추가
+- `ProductRepository.kt` — `getProductsByUser(userId)` 인터페이스 추가
+- `MockUserRepository.kt`, `MockProductRepository.kt` — 위 메서드 Mock 구현 추가
+
+### 백엔드 연결 준비
+- `res/raw/server.crt` — 서버 SSL 인증서
+- `res/xml/network_security_config.xml` — `bgdgnara.duckdns.org` 도메인 SSL 핀닝 설정 (시스템 레벨)
+- `AndroidManifest.xml` — `android:networkSecurityConfig`, `INTERNET` 권한 추가
+- `data/remote/RetrofitClient.kt` — OkHttp CertificatePinner + Retrofit 싱글턴 (앱 레벨 SSL 핀닝)
+- `libs.versions.toml`, `build.gradle.kts` — OkHttp 4.12.0, Retrofit 2.11.0 의존성 추가
+
+### 루팅 탐지 (Native / JNI)
+- `build.gradle.kts` — NDK/CMake 설정 추가 (CMake 4.1.2, C++17)
+- `cpp/CMakeLists.txt` — `root_detector` SHARED 라이브러리 정의, log 링크
+- `cpp/root_detector.cpp` — C++ 네이티브 구현
+  - `[AB]` `__system_property_get()`으로 ro.build.tags, ro.build.fingerprint, ro.secure, ro.adb.secure 검사
+  - `[PB]` `stat()`으로 su 바이너리 13개 경로 + 루트 파일 6개 경로 존재 여부 검사
+- `security/RootDetector.kt` — Kotlin 래퍼 (`object`)
+  - `checkBuildAttributes()`, `checkPaths()` → 네이티브 호출
+  - `checkPackages(context)` → Kotlin에서 PackageManager로 처리 (com.topjohnwu.magisk)
+  - `checkAll(context)` — 세 가지 결과 종합
+
+### 난독화 (ProGuard/R8)
+- `build.gradle.kts` — release 빌드에 `isMinifyEnabled = true`, `isShrinkResources = true` 적용
+- `proguard-rules.pro` — 규칙 설정
+  - `RootDetector` keep — JNI 함수명 보존 (.so 연결 유지)
+  - `data.model.**` keep — Gson JSON 역직렬화 필드명 보존
+  - Retrofit / OkHttp / Kotlin / Compose dontwarn 처리
+- release APK는 `app/build/outputs/apk/release/app-release.apk` 에 생성
+- .so 파일은 난독화 미적용 — Ghidra/IDA 분석 연습용으로 유지
+
+---
+
 ## 작업 요약 (2026-04-21)
 
 ### 인증 (Auth)
@@ -174,14 +210,20 @@
 
 ```
 app/src/main/
-├── AndroidManifest.xml                         # INTERNET 권한 + cleartext 허용
+├── AndroidManifest.xml
+├── cpp/
+│   ├── CMakeLists.txt                          # NDK 빌드 설정 (root_detector SHARED 라이브러리)
+│   └── root_detector.cpp                       # 루팅 탐지 네이티브 구현 (AB + PB)
+├── res/
+│   ├── raw/server.crt                          # 서버 SSL 인증서
+│   └── xml/network_security_config.xml         # bgdgnara.duckdns.org SSL 핀닝 설정
 └── java/com/example/bgjz_app/
     │
-    ├── MainActivity.kt                         # 앱 진입점, RetrofitClient.init() + AppNavigation 호스팅
+    ├── MainActivity.kt                         # 앱 진입점, AppNavigation 호스팅
     │
     ├── data/
     │   ├── mock/
-    │   │   └── MockData.kt                     # 더미 상품·유저·배너·채팅 데이터
+    │   │   └── MockData.kt                     # 더미 상품·유저·배너 데이터 (Product, Banner 등 data class 포함)
     │   │
     │   ├── model/                              # 앱 도메인 모델 (UI가 직접 사용)
     │   │   ├── AuthModel.kt                    # LoginRequest, RegisterRequest(phoneNum/region 포함), AuthToken, AuthResult
@@ -204,9 +246,9 @@ app/src/main/
     │   │       └── ProductDto.kt               # ProductResponseDto, ProductDetailResponseDto
     │   │
     │   └── repository/
-    │       ├── AuthRepository.kt               # 인터페이스
-    │       ├── UserRepository.kt               # 인터페이스
-    │       ├── ProductRepository.kt            # 인터페이스
+    │       ├── AuthRepository.kt               # 인증 API 인터페이스 (login, register, logout, refreshToken)
+    │       ├── UserRepository.kt               # 유저 API 인터페이스 (getMyProfile, updateMyProfile, uploadAvatar, changePassword, deleteAccount, getPublicProfile)
+    │       ├── ProductRepository.kt            # 상품 API 인터페이스 (getProducts, getProductById, getMyProducts, getLikedProducts, getProductsByUser, registerProduct, updateProduct, deleteProduct, updateProductStatus, uploadProductImages, likeProduct, unlikeProduct)
     │       │
     │       ├── mock/                           # Mock 구현 — 백엔드 미구현 기능들이 아직 씀
     │       │   ├── MockAuthRepository.kt
@@ -217,6 +259,9 @@ app/src/main/
     │           ├── RemoteAuthRepository.kt     # login/register/logout/refresh/passwordChange 전체 연결
     │           ├── RemoteUserRepository.kt     # 아바타 업로드 제외 전체 연결
     │           └── RemoteProductRepository.kt  # 목록/상세/내상품/유저상품 연결, 나머지는 Mock 위임
+    │
+    ├── security/
+    │   └── RootDetector.kt                     # 루팅 탐지 Kotlin 래퍼 (네이티브 호출 + 패키지 검사)
     │
     └── ui/
         ├── components/
