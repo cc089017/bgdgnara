@@ -36,9 +36,9 @@ import com.example.bgjz_app.ui.theme.BrandPurple
 
 enum class NavTab(val label: String, val route: String, val icon: ImageVector) {
     HOME("홈", Route.Home.path, Icons.Filled.Home),
-    SEARCH("검색", Route.Home.path, Icons.Filled.Search),
+    SEARCH("검색", Route.Search.path, Icons.Filled.Search),
     REGISTER("등록", Route.ProductRegister.path, Icons.Filled.Add),
-    CHAT("채팅", Route.Home.path, Icons.Filled.Chat),
+    CHAT("채팅", Route.ChatList.path, Icons.Filled.Chat),
     MY("마이", Route.MyPage.path, Icons.Filled.Person)
 }
 

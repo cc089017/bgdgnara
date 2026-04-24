@@ -7,7 +7,7 @@ import com.example.bgjz_app.data.model.UpdateProfileRequest
 import com.example.bgjz_app.data.model.UserProfile
 import com.example.bgjz_app.data.model.UserResult
 import com.example.bgjz_app.data.repository.UserRepository
-import com.example.bgjz_app.data.repository.mock.MockUserRepository
+import com.example.bgjz_app.data.repository.remote.RemoteUserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -23,9 +23,8 @@ data class UserUiState(
     val isDeleteSuccess: Boolean = false
 )
 
-// 백엔드 연결 시: MockUserRepository() → RemoteUserRepository(retrofit)
 class UserViewModel(
-    private val repository: UserRepository = MockUserRepository()
+    private val repository: UserRepository = RemoteUserRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(UserUiState())

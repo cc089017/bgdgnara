@@ -9,7 +9,9 @@ data class RegisterRequest(
     val username: String,
     val password: String,
     val nickname: String,
-    val email: String
+    val email: String,
+    val phoneNum: String,
+    val region: String,
 )
 
 data class AuthToken(

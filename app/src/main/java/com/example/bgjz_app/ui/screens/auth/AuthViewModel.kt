@@ -6,7 +6,7 @@ import com.example.bgjz_app.data.model.AuthResult
 import com.example.bgjz_app.data.model.LoginRequest
 import com.example.bgjz_app.data.model.RegisterRequest
 import com.example.bgjz_app.data.repository.AuthRepository
-import com.example.bgjz_app.data.repository.mock.MockAuthRepository
+import com.example.bgjz_app.data.repository.remote.RemoteAuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,9 +20,8 @@ data class AuthUiState(
     val isRegisterSuccess: Boolean = false
 )
 
-// 백엔드 연결 시: MockAuthRepository() → RemoteAuthRepository(retrofit)
 class AuthViewModel(
-    private val repository: AuthRepository = MockAuthRepository()
+    private val repository: AuthRepository = RemoteAuthRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -38,10 +37,20 @@ class AuthViewModel(
         }
     }
 
-    fun register(username: String, password: String, nickname: String, email: String) {
+    fun register(
+        username: String,
+        password: String,
+        nickname: String,
+        email: String,
+        phoneNum: String,
+        region: String,
+    ) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            when (val result = repository.register(RegisterRequest(username, password, nickname, email))) {
+            val result = repository.register(
+                RegisterRequest(username, password, nickname, email, phoneNum, region)
+            )
+            when (result) {
                 is AuthResult.Success -> _uiState.update { it.copy(isLoading = false, isRegisterSuccess = true) }
                 is AuthResult.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
             }

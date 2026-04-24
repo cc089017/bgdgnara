@@ -140,4 +140,13 @@ class MockProductRepository : ProductRepository {
         likedIds.remove(productId)
         return UserResult.Success(Unit)
     }
+
+    override suspend fun searchProducts(query: String): UserResult<List<Product>> {
+        delay(300)
+        if (query.isBlank()) return UserResult.Success(emptyList())
+        val results = MockData.products.filter {
+            it.name.contains(query.trim(), ignoreCase = true)
+        }.map { it.copy(isLiked = it.id in likedIds) }
+        return UserResult.Success(results)
+    }
 }

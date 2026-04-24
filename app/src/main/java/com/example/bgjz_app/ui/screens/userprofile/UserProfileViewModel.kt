@@ -7,8 +7,8 @@ import com.example.bgjz_app.data.model.UserProfile
 import com.example.bgjz_app.data.model.UserResult
 import com.example.bgjz_app.data.repository.ProductRepository
 import com.example.bgjz_app.data.repository.UserRepository
-import com.example.bgjz_app.data.repository.mock.MockProductRepository
-import com.example.bgjz_app.data.repository.mock.MockUserRepository
+import com.example.bgjz_app.data.repository.remote.RemoteProductRepository
+import com.example.bgjz_app.data.repository.remote.RemoteUserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,10 +22,9 @@ data class UserProfileUiState(
     val error: String? = null
 )
 
-// 백엔드 연결 시: Mock~ → Remote~ 교체
 class UserProfileViewModel(
-    private val userRepository: UserRepository = MockUserRepository(),
-    private val productRepository: ProductRepository = MockProductRepository()
+    private val userRepository: UserRepository = RemoteUserRepository(),
+    private val productRepository: ProductRepository = RemoteProductRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(UserProfileUiState())

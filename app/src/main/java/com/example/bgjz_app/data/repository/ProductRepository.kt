@@ -18,4 +18,5 @@ interface ProductRepository {
     suspend fun getProductsByUser(userId: String): UserResult<List<Product>>
     suspend fun likeProduct(productId: Int): UserResult<Unit>
     suspend fun unlikeProduct(productId: Int): UserResult<Unit>
+    suspend fun searchProducts(query: String): UserResult<List<Product>>
 }

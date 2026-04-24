@@ -48,10 +48,11 @@
   | PUT | `/auth/password/change` | 비밀번호 변경 | 🔧 Mock 구현 | `data/repository/UserRepository.kt` →
   `changePassword()` |
   | DEL | `/users/me` | 회원 탈퇴 | 🔧 Mock 구현 | `data/repository/UserRepository.kt` → `deleteAccount()` |
-  | GET | `/users/{user_id}` | 타 유저 공개 프로필 조회 | ⬜ 미구현 | UI 없음 (타 유저 프로필 화면 필요) |
-  | GET | `/users/{user_id}/reviews` | 유저 거래 후기 목록 | ⬜ 미구현 | UI 없음 (후기 목록 화면 필요) |
-  | GET | `/users/{user_id}/products` | 유저가 올린 상품 목록 | 🔧 Mock 구현 | `data/repository/UserRepository.kt` →
-  `getUserProducts()` |
+   - GET /users/{user_id} → ✅ 완료 / UserRepository.getPublicProfile() + UserProfileScreen
+  - GET /users/{user_id}/products → ✅ 완료 / ProductRepository.getProductsByUser() + UserProfileScreen 내 상품 그리드에
+   표시
+ | GET | `/users/{user_id}/products` | 유저가 올린 상품 목록 | ✅ 완료 | `data/repository/ProductRepository.kt` →
+  `getProductsByUser()` |
 
   **관련 UI**: `ui/screens/mypage/MyPageScreen.kt`, `ui/screens/mypage/ProfileEditScreen.kt`
   **ViewModel**: `ui/screens/mypage/UserViewModel.kt`
@@ -59,26 +60,48 @@
   **교체 포인트**: `MockUserRepository` → `RemoteUserRepository` (Retrofit)
 
 
-##상
+  ## 상품
 
-  | GET | `/products` | 상품 목록 조회 (필터, 검색, 페이지네이션) | 🔧 Mock 구현 |
-  `data/repository/ProductRepository.kt` → `getProducts()` |
-  | GET | `/products/{product_id}` | 상품 상세 조회 | ⬜ 미구현 | UI 없음 (상품 상세 화면 필요) |
+  | 메서드 | 엔드포인트 | 설명 | 상태 | 코드 위치 |
+  | --- | --- | --- | --- | --- |
+
+  | GET | `/products` | 상품 목록 조회 (필터, 검색, 페이지네이션) | ✅ 백엔드 구현 | `data/repository/ProductRepository.kt` → `getProducts()` |
+  | GET | `/products/{product_id}` | 상품 상세 조회 (판매자 + 이미지 포함) | ✅ 백엔드 구현 | `data/repository/ProductRepository.kt` → `getProductById()` |
+  | GET | `/products/{product_id}/images` | 상품 이미지 순서/URL 목록 | ✅ 백엔드 구현 | (Coil용 URL 직접 사용) |
+  | GET | `/products/{product_id}/images/{image_order}` | 상품 이미지 바이너리 서빙 (media_type image/jpeg) | ✅ 백엔드 구현 | (Coil `AsyncImage` 로드) |
   | POST | `/products` | 상품 등록 | 🔧 Mock 구현 | `data/repository/ProductRepository.kt` → `registerProduct()` |
   | PATCH | `/products/{product_id}` | 상품 수정 | ⬜ 미구현 | UI 없음 (상품 수정 화면 필요) |
   | DEL | `/products/{product_id}` | 상품 삭제 | ⬜ 미구현 | UI 없음 (상세 화면에 추가 예정) |
-  | POST | `/products/{product_id}/images` | 상품 이미지 업로드 | 🔧 Mock 구현 | `data/repository/ProductRepository.kt`
-  → `uploadProductImages()` |
-  | PATCH | `/products/{product_id}/status` | 상태 변경 (판매중 / 예약중 / 판매완료) | ⬜ 미구현 | UI 없음 (상세 화면에
-  추가 예정) |
-  | POST | `/products/{product_id}/like` | 찜하기 | 🔧 Mock 구현 | `data/repository/ProductRepository.kt` →
-  `likeProduct()` |
-  | DEL | `/products/{product_id}/like` | 찜 취소 | 🔧 Mock 구현 | `data/repository/ProductRepository.kt` →
-  `unlikeProduct()` |
-  | GET | `/products/liked` | 내 찜 목록 | 🔧 Mock 구현 | `data/repository/ProductRepository.kt` → `getLikedProducts()`
-  |
-  | GET | `/products/me` | 내가 올린 상품 목록 | 🔧 Mock 구현 | `data/repository/ProductRepository.kt` →
-  `getMyProducts()` |
+  | POST | `/products/{product_id}/images` | 상품 이미지 업로드 | 🔧 Mock 구현 | `data/repository/ProductRepository.kt` → `uploadProductImages()` |
+  | PATCH | `/products/{product_id}/status` | 상태 변경 (판매중 / 예약중 / 판매완료) | ⬜ 미구현 | UI 없음 (상세 화면에 추가 예정) |
+  | POST | `/products/{product_id}/like` | 찜하기 | 🔧 Mock 구현 | `data/repository/ProductRepository.kt` → `likeProduct()` |
+  | DEL | `/products/{product_id}/like` | 찜 취소 | 🔧 Mock 구현 | `data/repository/ProductRepository.kt` → `unlikeProduct()` |
+  | GET | `/products/liked` | 내 찜 목록 | 🔧 Mock 구현 | `data/repository/ProductRepository.kt` → `getLikedProducts()` |
+  | GET | `/products/me` | 내가 올린 상품 목록 | 🔧 Mock 구현 | `data/repository/ProductRepository.kt` → `getMyProducts()` |
+
+  ### 응답 스키마 요약
+
+  **`ProductResponse`** (목록·등록·수정·상태변경·내상품 공통)
+  ```json
+  {
+    "product_id": 1, "user_id": "hong123",
+    "product_title": "나이키 운동화", "product_body": "...", "product_price": 50000,
+    "category": "의류", "product_status": "판매중",
+    "thumbnail_url": "/products/1/images/0"   // 대표 이미지 상대경로, 없으면 null
+  }
+  ```
+
+  **`ProductDetailResponse`** (단일 상세, `ProductResponse` 확장)
+  ```json
+  {
+    ...ProductResponse 필드,
+    "seller_nickname": "홍길동",
+    "seller_region": "서울 강남구",
+    "image_urls": ["/products/1/images/0", "/products/1/images/1"]   // 전체 이미지 상대경로 (image_order 순)
+  }
+  ```
+
+  > 이미지 URL은 상대경로. 안드로이드에서 `BuildConfig.BASE_URL + thumbnail_url` 으로 조합해 Coil `AsyncImage`에 전달.
 
   **관련 UI**: `ui/screens/home/HomeScreen.kt`, `ui/screens/wishlist/WishlistScreen.kt`,
   `ui/screens/product/ProductRegisterScreen.kt`, `ui/screens/mypage/MyPageScreen.kt`
@@ -108,16 +131,25 @@
 
 > 채팅은 WebSocket으로 구현 예정
 
-| 메서드 | 엔드포인트 | 설명 | 상태 | 코드 위치 |
-| --- | --- | --- | --- | --- |
-| GET | `/chats` | 내 채팅방 목록 | ⬜ 미구현 | - |
-| POST | `/chats` | 채팅방 개설 (상품 기준) | ⬜ 미구현 | - |
-| DEL | `/chats/{chat_id}` | 채팅방 나가기 | ⬜ 미구현 | - |
-| GET | `/chats/{chat_id}/messages` | 채팅 메시지 목록 조회 | ⬜ 미구현 | - |
-| POST | `/chats/{chat_id}/messages` | 메시지 전송 (REST fallback) | ⬜ 미구현 | - |
-| POST | `/chats/{chat_id}/images` | 채팅 내 이미지 전송 | ⬜ 미구현 | - |
+  | 메서드 | 엔드포인트 | 설명 | 상태 | 코드 위치 |
+  | --- | --- | --- | --- | --- |
+  | GET | `/chats` | 내 채팅방 목록 | 🔧 Mock 구현 | `ui/screens/chat/ChatViewModel.kt` → `chatRooms` |
+  | POST | `/chats` | 채팅방 개설 (상품 기준) | 🔧 Mock 구현 | `ui/navigation/AppNavigation.kt` → `onChatClick`
+  (productId로 방 탐색) |
+  | DEL | `/chats/{chat_id}` | 채팅방 나가기 | ⬜ 미구현 | - |
+  | GET | `/chats/{chat_id}/messages` | 채팅 메시지 목록 조회 | 🔧 Mock 구현 | `ui/screens/chat/ChatRoomViewModel.kt` →
+  `messages` |
+  | POST | `/chats/{chat_id}/messages` | 메시지 전송 (REST fallback) | 🔧 Mock 구현 |
+  `ui/screens/chat/ChatRoomViewModel.kt` → `sendMessage()` |
+  | POST | `/chats/{chat_id}/images` | 채팅 내 이미지 전송 | 🔧 Mock 구현 | `ui/screens/chat/ChatRoomScreen.kt` →
+  `ChatInputBar` (갤러리 피커 UI만) |
 
----
+  표 아래에 이것도 추가해 주세요:
+
+  **관련 UI**: `ui/screens/chat/ChatListScreen.kt`, `ui/screens/chat/ChatRoomScreen.kt`
+  **ViewModel**: `ui/screens/chat/ChatViewModel.kt`, `ui/screens/chat/ChatRoomViewModel.kt`
+  **Mock**: `data/mock/MockData.kt` → `chatRooms`, `chatMessages`
+  **교체 포인트**: `ChatViewModel`, `ChatRoomViewModel` 내 Mock 데이터 → Remote API 호출로 교체
 
 ## 거래 / 후기
 
@@ -132,23 +164,27 @@
 ## 운영 / 공통
 
 | 메서드 | 엔드포인트 | 설명 | 상태 | 코드 위치 |
-| --- | --- | --- | --- | --- |
+| --- | --- | --- | --- | --- 
 | GET | `/health` | 서버 헬스체크 (배포 필수) | ⬜ 미구현 | - |
 | GET | `/notices` | 공지사항 목록 | ⬜ 미구현 | - |
 | GET | `/notices/{notice_id}` | 공지사항 상세 | ⬜ 미구현 | - |
 
----
-
-## 관리자
-
-| 메서드 | 엔드포인트 | 설명 | 상태 | 코드 위치 |
-| --- | --- | --- | --- | --- |
-| GET | `/admin/users` | 전체 유저 관리 | ⬜ 미구현 | - |
-| PATCH | `/admin/users/{user_id}/ban` | 유저 정지 / 해제 | ⬜ 미구현 | - |
-| GET | `/admin/products` | 전체 상품 관리 | ⬜ 미구현 | - |
-| POST | `/admin/notices` | 공지사항 작성 | ⬜ 미구현 | - |
-| PATCH | `/admin/notices/{notice_id}` | 공지사항 수정 | ⬜ 미구현 | - |
-| DEL | `/admin/notices/{notice_id}` | 공지사항 삭제 | ⬜ 미구현 | - |
-| POST | `/admin/upload` | 공지 / 배너 파일 업로드 | ⬜ 미구현 | - |
-
+  ---
+  관리자 섹션:
+  | GET    | `/admin/users`                  | 전체 유저 관리              | 🔧 Mock 구현 |
+  `ui/screens/admin/AdminViewModel.kt` → `filteredUsers()` |
+  | PATCH  | `/admin/users/{user_id}/ban`    | 유저 정지 / 해제            | 🔧 Mock 구현 |
+  `ui/screens/admin/AdminViewModel.kt` → `toggleBan()` |
+  | GET    | `/admin/products`               | 전체 상품 관리              | 🔧 Mock 구현 |
+  `ui/screens/admin/AdminViewModel.kt` → `filteredProducts()` |
+  | POST   | `/admin/notices`                | 공지사항 작성               | ⬜ 미구현     | - |
+  | PATCH  | `/admin/notices/{notice_id}`    | 공지사항 수정               | ⬜ 미구현     | - |
+  | DEL    | `/admin/notices/{notice_id}`    | 공지사항 삭제               | ⬜ 미구현     | - |
+  | POST   | `/admin/upload`                 | 공지 / 배너 파일 업로드      | 🔧 Mock 구현 |
+  `ui/screens/admin/AdminViewModel.kt` → `uploadBanners()` |
+  아래에 추가:
+  **관련 UI**: `ui/screens/admin/AdminScreen.kt`
+  **ViewModel**: `ui/screens/admin/AdminViewModel.kt`
+  **진입점**: 홈 화면 "번개당근나라" 텍스트 클릭 (추후 admin_id 권한 체크 예정)
+  **교체 포인트**: `AdminViewModel` 내 각 함수에서 Remote API 직접 호출로 교체
 claude --resume 5c65fbce-59ad-46d7-8777-87c1a9f227ff

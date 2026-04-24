@@ -78,6 +78,7 @@ fun ProductDetailScreen(
     onEdit: (Int) -> Unit = {},
     onDeleteSuccess: () -> Unit = {},
     onSellerClick: (String) -> Unit = {},
+    onChatClick: () -> Unit = {},
     viewModel: ProductDetailViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -106,7 +107,8 @@ fun ProductDetailScreen(
                     onEdit = { onEdit(productId) },
                     onDelete = { viewModel.deleteProduct() },
                     onStatusChange = { viewModel.updateStatus(it) },
-                    onSellerClick = { onSellerClick(uiState.product!!.sellerId) }
+                    onSellerClick = { onSellerClick(uiState.product!!.sellerId) },
+                    onChatClick = onChatClick
                 )
             }
             uiState.error != null -> {
@@ -128,7 +130,8 @@ private fun ProductDetailContent(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onStatusChange: (ProductStatus) -> Unit,
-    onSellerClick: () -> Unit
+    onSellerClick: () -> Unit,
+    onChatClick: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -198,7 +201,11 @@ private fun ProductDetailContent(
                 .padding(bottom = 80.dp + navBarHeight)
         ) {
             // 이미지 캐러셀
-            ImageCarousel(imageRes = product.imageRes, status = product.status)
+            ImageCarousel(
+                imageUrls = product.imageUrls,
+                fallbackImageRes = product.imageRes,
+                status = product.status,
+            )
 
             // 상품 정보 영역
             Column(modifier = Modifier.padding(horizontal = 20.dp)) {
@@ -355,7 +362,7 @@ private fun ProductDetailContent(
                 )
             }
             OutlinedButton(
-                onClick = {},
+                onClick = onChatClick,
                 modifier = Modifier.weight(1f).height(48.dp),
                 shape = RoundedCornerShape(12.dp),
                 border = androidx.compose.foundation.BorderStroke(1.5.dp, BrandPurple)
@@ -384,17 +391,37 @@ private fun ProductDetailContent(
 }
 
 @Composable
-private fun ImageCarousel(imageRes: Int, status: ProductStatus) {
-    val pagerState = rememberPagerState(pageCount = { 3 })
+private fun ImageCarousel(
+    imageUrls: List<String>,
+    fallbackImageRes: Int,
+    status: ProductStatus,
+) {
+    val pageCount = imageUrls.size.takeIf { it > 0 } ?: 1
+    val pagerState = rememberPagerState(pageCount = { pageCount })
 
     Box(modifier = Modifier.fillMaxWidth().aspectRatio(1f)) {
-        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) {
-            Image(
-                painter = painterResource(id = imageRes),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+        HorizontalPager(state = pagerState, modifier = Modifier.fillMaxSize()) { page ->
+            val url = imageUrls.getOrNull(page)
+            if (!url.isNullOrBlank()) {
+                coil.compose.AsyncImage(
+                    model = coil.request.ImageRequest.Builder(androidx.compose.ui.platform.LocalContext.current)
+                        .data(url)
+                        .crossfade(true)
+                        .build(),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    placeholder = painterResource(id = fallbackImageRes),
+                    error = painterResource(id = fallbackImageRes),
+                )
+            } else {
+                Image(
+                    painter = painterResource(id = fallbackImageRes),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
         }
 
         if (status != ProductStatus.ON_SALE) {
@@ -420,7 +447,7 @@ private fun ImageCarousel(imageRes: Int, status: ProductStatus) {
                 .padding(horizontal = 10.dp, vertical = 4.dp)
         ) {
             Text(
-                text = "${pagerState.currentPage + 1}/3",
+                text = "${pagerState.currentPage + 1}/$pageCount",
                 fontSize = 12.sp,
                 color = Color.White,
                 fontWeight = FontWeight.SemiBold

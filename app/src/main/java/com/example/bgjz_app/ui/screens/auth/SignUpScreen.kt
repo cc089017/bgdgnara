@@ -51,6 +51,8 @@ fun SignUpScreen(
     var passwordConfirm by remember { mutableStateOf("") }
     var nickname by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
+    var phoneNum by remember { mutableStateOf("") }
+    var region by remember { mutableStateOf("") }
     var pwVisible by remember { mutableStateOf(false) }
     var pwConfirmVisible by remember { mutableStateOf(false) }
 
@@ -121,6 +123,10 @@ fun SignUpScreen(
         UnderlineField(label = "닉네임", value = nickname, onValueChange = { nickname = it })
         Spacer(modifier = Modifier.height(24.dp))
         UnderlineField(label = "이메일", value = email, onValueChange = { email = it })
+        Spacer(modifier = Modifier.height(24.dp))
+        UnderlineField(label = "전화번호 (010-0000-0000)", value = phoneNum, onValueChange = { phoneNum = it })
+        Spacer(modifier = Modifier.height(24.dp))
+        UnderlineField(label = "지역 (예: 서울 강남구)", value = region, onValueChange = { region = it })
 
         if (uiState.error != null) {
             Spacer(modifier = Modifier.height(16.dp))
@@ -135,7 +141,7 @@ fun SignUpScreen(
 
         Spacer(modifier = Modifier.height(48.dp))
         Button(
-            onClick = { viewModel.register(id, password, nickname, email) },
+            onClick = { viewModel.register(id, password, nickname, email, phoneNum, region) },
             enabled = !uiState.isLoading,
             modifier = Modifier
                 .fillMaxWidth()

@@ -6,12 +6,14 @@ data class UserProfile(
     val nickname: String,
     val email: String,
     val avatarUrl: String?,
-    val region: String?
+    val region: String?,
+    val phoneNum: String? = null,
 )
 
 data class UpdateProfileRequest(
     val nickname: String,
-    val region: String?
+    val region: String?,
+    val phoneNum: String? = null,
 )
 
 data class ChangePasswordRequest(

@@ -28,5 +28,8 @@ data class ProductDetail(
     val sellerId: String,
     val sellerNickname: String,
     val sellerRegion: String,
-    @DrawableRes val sellerAvatarRes: Int
+    @DrawableRes val sellerAvatarRes: Int,
+    /** 백엔드 연결 시 사용. null/empty면 imageRes로 fallback. */
+    val thumbnailUrl: String? = null,
+    val imageUrls: List<String> = emptyList(),
 )

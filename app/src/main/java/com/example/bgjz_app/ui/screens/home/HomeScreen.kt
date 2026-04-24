@@ -65,6 +65,7 @@ private data class ShortcutItem(val label: String, val icon: ImageVector, val ro
 fun HomeScreen(
     navController: NavHostController,
     onProductClick: (Int) -> Unit = {},
+    onAdminClick: () -> Unit = {},
     viewModel: HomeViewModel = viewModel()
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -81,7 +82,7 @@ fun HomeScreen(
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
         ) {
-            HomeTopBar()
+            HomeTopBar(onAdminClick = onAdminClick)
             BannerCarousel()
             Spacer(modifier = Modifier.height(20.dp))
             ShortcutRow(navController = navController)
@@ -99,7 +100,7 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HomeTopBar() {
+private fun HomeTopBar(onAdminClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -110,7 +111,13 @@ private fun HomeTopBar() {
         IconButton(onClick = {}) {
             Icon(Icons.Filled.Menu, contentDescription = "메뉴", tint = Color.Black)
         }
-        Text(text = "번개당근나라", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = BrandPurple)
+        Text(
+            text = "번개당근나라",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            color = BrandPurple,
+            modifier = Modifier.clickable { onAdminClick() }
+        )
         IconButton(onClick = {}) {
             Icon(Icons.Filled.Notifications, contentDescription = "알림", tint = Color.Black)
         }

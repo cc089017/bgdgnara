@@ -5,7 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.bgjz_app.data.mock.Product
 import com.example.bgjz_app.data.model.UserResult
 import com.example.bgjz_app.data.repository.ProductRepository
-import com.example.bgjz_app.data.repository.mock.MockProductRepository
+import com.example.bgjz_app.data.repository.remote.RemoteProductRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -18,9 +18,8 @@ data class ProductUiState(
     val error: String? = null
 )
 
-// 백엔드 연결 시: MockProductRepository() → RemoteProductRepository(retrofit)
 class ProductViewModel(
-    private val repository: ProductRepository = MockProductRepository()
+    private val repository: ProductRepository = RemoteProductRepository()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(ProductUiState())

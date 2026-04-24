@@ -20,6 +20,10 @@ import com.example.bgjz_app.ui.screens.product.ProductRegisterScreen
 import com.example.bgjz_app.ui.screens.userprofile.UserProfileScreen
 import com.example.bgjz_app.ui.screens.splash.SplashScreen
 import com.example.bgjz_app.ui.screens.wishlist.WishlistScreen
+import com.example.bgjz_app.ui.screens.search.SearchScreen
+import com.example.bgjz_app.ui.screens.admin.AdminScreen
+import com.example.bgjz_app.ui.screens.chat.ChatListScreen
+import com.example.bgjz_app.ui.screens.chat.ChatRoomScreen
 
 sealed class Route(val path: String) {
     data object Splash : Route("splash")
@@ -40,6 +44,12 @@ sealed class Route(val path: String) {
     }
     data object UserProfile : Route("user_profile/{userId}") {
         fun createRoute(userId: String) = "user_profile/$userId"
+    }
+    data object Search : Route("search")
+    data object Admin : Route("admin")
+    data object ChatList : Route("chat_list")
+    data object ChatRoom : Route("chat_room/{chatRoomId}") {
+        fun createRoute(chatRoomId: Int) = "chat_room/$chatRoomId"
     }
 }
 
@@ -89,7 +99,8 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 navController = navController,
                 onProductClick = { productId ->
                     navController.navigate(Route.ProductDetail.createRoute(productId))
-                }
+                },
+                onAdminClick = { navController.navigate(Route.Admin.path) }
             )
         }
         composable(Route.Wishlist.path) {
@@ -130,6 +141,36 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
         composable(Route.AutoPrice.path) {
             AutoPriceScreen(onBack = { navController.popBackStack() })
         }
+        composable(Route.Admin.path) {
+            AdminScreen(onBack = { navController.popBackStack() })
+        }
+        composable(Route.ChatList.path) {
+            ChatListScreen(
+                navController = navController,
+                onChatRoomClick = { roomId ->
+                    navController.navigate(Route.ChatRoom.createRoute(roomId))
+                }
+            )
+        }
+        composable(
+            route = Route.ChatRoom.path,
+            arguments = listOf(navArgument("chatRoomId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val chatRoomId = backStackEntry.arguments?.getInt("chatRoomId") ?: return@composable
+            ChatRoomScreen(
+                chatRoomId = chatRoomId,
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Route.Search.path) {
+            SearchScreen(
+                navController = navController,
+                onBack = { navController.popBackStack() },
+                onProductClick = { productId ->
+                    navController.navigate(Route.ProductDetail.createRoute(productId))
+                }
+            )
+        }
         composable(
             route = Route.ProductDetail.path,
             arguments = listOf(navArgument("productId") { type = NavType.IntType })
@@ -140,7 +181,15 @@ fun AppNavigation(navController: NavHostController = rememberNavController()) {
                 onBack = { navController.popBackStack() },
                 onEdit = { id -> navController.navigate(Route.ProductEdit.createRoute(id)) },
                 onDeleteSuccess = { navController.popBackStack() },
-                onSellerClick = { sellerId -> navController.navigate(Route.UserProfile.createRoute(sellerId)) }
+                onSellerClick = { sellerId -> navController.navigate(Route.UserProfile.createRoute(sellerId)) },
+                onChatClick = {
+                    // 백엔드 연결 시: POST /chats {productId} → 서버가 chatRoomId 반환
+                    val roomId = com.example.bgjz_app.data.mock.MockData.chatRooms
+                        .find { it.productId == productId }?.id
+                        ?: com.example.bgjz_app.data.mock.MockData.chatRooms.firstOrNull()?.id
+                        ?: 1
+                    navController.navigate(Route.ChatRoom.createRoute(roomId))
+                }
             )
         }
         composable(
