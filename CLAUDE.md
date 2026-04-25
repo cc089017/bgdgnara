@@ -19,7 +19,7 @@
 5. **로컬 테스트 방식: 실기기 + USB (고정)**
    - `BASE_URL = "http://localhost:8000/"` 유지 (에뮬레이터용 `10.0.2.2`로 바꾸지 말 것)
    - 테스트 순서:
-     1. 백엔드: `cd C2CBackendA-main/C2CBackendA-main && uvicorn main:app --host 0.0.0.0 --port 8000 --reload`
+     1. 백엔드: `  - 신규: cd C2CBackendA-main && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload`
      2. USB 연결 후: `adb reverse tcp:8000 tcp:8000` (USB 재연결 시마다 재실행 필요)
      3. Android Studio에서 앱 빌드·설치
    - WiFi 연결과 무관하게 USB 터널링으로만 동작

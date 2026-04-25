@@ -16,9 +16,7 @@ object RootDetector {
 
     private external fun checkBuildAttributesNative(): Boolean
     private external fun checkPathsNative(): Boolean
-
     fun checkBuildAttributes(): Boolean = checkBuildAttributesNative()
-
     fun checkPaths(): Boolean = checkPathsNative()
 
     fun checkPackages(context: Context): Boolean {

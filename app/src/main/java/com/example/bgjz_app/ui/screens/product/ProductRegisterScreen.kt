@@ -64,6 +64,7 @@ fun ProductRegisterScreen(
     viewModel: ProductRegisterViewModel = viewModel()
 ) {
     var name by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
     var category by remember { mutableStateOf("") }
     var price by remember { mutableStateOf("") }
     var shippingIncluded by remember { mutableStateOf(true) }
@@ -152,6 +153,13 @@ fun ProductRegisterScreen(
                 onValueChange = { price = it.filter { c -> c.isDigit() } },
                 placeholder = "₩ 가격을 입력하세요"
             )
+            Spacer(modifier = Modifier.height(20.dp))
+            UnderlineField(
+                label = "설명",
+                value = description,
+                onValueChange = { description = it },
+                placeholder = "상품 설명을 입력하세요 (최대 100자)"
+            )
             Spacer(modifier = Modifier.height(28.dp))
 
             Text(text = "배송비", fontSize = 14.sp, color = BrandDarkGray)
@@ -188,11 +196,12 @@ fun ProductRegisterScreen(
                 onClick = {
                     viewModel.register(
                         name = name,
+                        description = description,
                         category = category,
                         price = price.toIntOrNull() ?: 0,
                         shippingIncluded = shippingIncluded,
                         autoPriceDown = autoPriceDown,
-                        imageUris = imageUris.map { it.toString() }
+                        imageUris = imageUris
                     )
                 },
                 enabled = !uiState.isLoading,

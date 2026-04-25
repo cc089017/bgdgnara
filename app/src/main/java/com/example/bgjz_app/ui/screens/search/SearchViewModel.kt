@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.bgjz_app.data.mock.Product
 import com.example.bgjz_app.data.model.UserResult
-import com.example.bgjz_app.data.repository.mock.MockProductRepository
+import com.example.bgjz_app.data.repository.remote.RemoteProductRepository
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,8 +22,7 @@ data class SearchUiState(
 @OptIn(FlowPreview::class)
 class SearchViewModel : ViewModel() {
 
-    // 백엔드 연결 시: MockProductRepository() → RemoteProductRepository(retrofit)
-    private val repository = MockProductRepository()
+    private val repository = RemoteProductRepository()
 
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState

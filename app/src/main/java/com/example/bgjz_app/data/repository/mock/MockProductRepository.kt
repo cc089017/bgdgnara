@@ -60,10 +60,12 @@ class MockProductRepository : ProductRepository {
         )
     }
 
-    override suspend fun getProducts(): UserResult<List<Product>> {
+    override suspend fun getProducts(limit: Int): UserResult<List<Product>> {
         delay(400)
         return UserResult.Success(
-            MockData.products.map { it.copy(isLiked = it.id in likedIds) }
+            MockData.products
+                .map { it.copy(isLiked = it.id in likedIds) }
+                .take(limit)
         )
     }
 
@@ -118,7 +120,7 @@ class MockProductRepository : ProductRepository {
         return UserResult.Success(Unit)
     }
 
-    override suspend fun uploadProductImages(productId: Int, imageUris: List<String>): UserResult<Unit> {
+    override suspend fun uploadProductImages(productId: Int, imageBytes: List<ByteArray>): UserResult<Unit> {
         delay(600)
         return UserResult.Success(Unit)
     }

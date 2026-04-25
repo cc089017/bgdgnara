@@ -9,7 +9,13 @@ import com.example.bgjz_app.data.remote.ApiResult
 import com.example.bgjz_app.data.remote.RetrofitClient
 import com.example.bgjz_app.data.remote.api.ProductApi
 import com.example.bgjz_app.data.remote.api.UserApi
+import com.example.bgjz_app.data.remote.dto.ProductCreateDto
+import com.example.bgjz_app.data.remote.dto.ProductStatusUpdateDto
+import com.example.bgjz_app.data.remote.dto.ProductUpdateDto
 import com.example.bgjz_app.data.remote.safeApiCall
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.toRequestBody
 import com.example.bgjz_app.data.remote.toDomain
 import com.example.bgjz_app.data.repository.ProductRepository
 import com.example.bgjz_app.data.repository.mock.MockProductRepository
@@ -25,8 +31,8 @@ class RemoteProductRepository(
     private val mockFallback: MockProductRepository = MockProductRepository(),
 ) : ProductRepository {
 
-    override suspend fun getProducts(): UserResult<List<Product>> {
-        return when (val result = safeApiCall { productApi.getProducts() }) {
+    override suspend fun getProducts(limit: Int): UserResult<List<Product>> {
+        return when (val result = safeApiCall { productApi.getProducts(limit = limit) }) {
             is ApiResult.Success -> UserResult.Success(result.data.map { it.toDomain() })
             is ApiResult.Error -> UserResult.Error(result.message)
         }
@@ -58,20 +64,64 @@ class RemoteProductRepository(
     override suspend fun getLikedProducts(): UserResult<List<Product>> =
         mockFallback.getLikedProducts()
 
-    override suspend fun registerProduct(request: RegisterProductRequest): UserResult<Product> =
-        mockFallback.registerProduct(request)
+    override suspend fun registerProduct(request: RegisterProductRequest): UserResult<Product> {
+        val dto = ProductCreateDto(
+            productTitle = request.name,
+            productBody = request.description.ifBlank { null },
+            productPrice = request.price,
+            category = request.category,
+        )
+        return when (val result = safeApiCall { productApi.createProduct(dto) }) {
+            is ApiResult.Success -> UserResult.Success(result.data.toDomain())
+            is ApiResult.Error -> UserResult.Error(result.message)
+        }
+    }
 
-    override suspend fun updateProduct(productId: Int, request: RegisterProductRequest): UserResult<Product> =
-        mockFallback.updateProduct(productId, request)
+    override suspend fun updateProduct(productId: Int, request: RegisterProductRequest): UserResult<Product> {
+        val dto = ProductUpdateDto(
+            productTitle = request.name.ifBlank { null },
+            productBody = request.description.ifBlank { null },
+            productPrice = request.price,
+            category = request.category.ifBlank { null },
+        )
+        return when (val result = safeApiCall { productApi.updateProduct(productId, dto) }) {
+            is ApiResult.Success -> UserResult.Success(result.data.toDomain())
+            is ApiResult.Error -> UserResult.Error(result.message)
+        }
+    }
 
-    override suspend fun deleteProduct(productId: Int): UserResult<Unit> =
-        mockFallback.deleteProduct(productId)
+    override suspend fun deleteProduct(productId: Int): UserResult<Unit> {
+        return when (val result = safeApiCall { productApi.deleteProduct(productId) }) {
+            is ApiResult.Success -> UserResult.Success(Unit)
+            is ApiResult.Error -> UserResult.Error(result.message)
+        }
+    }
 
-    override suspend fun updateProductStatus(productId: Int, status: ProductStatus): UserResult<Unit> =
-        mockFallback.updateProductStatus(productId, status)
+    override suspend fun updateProductStatus(productId: Int, status: ProductStatus): UserResult<Unit> {
+        val statusStr = when (status) {
+            ProductStatus.ON_SALE -> "판매중"
+            ProductStatus.RESERVED -> "예약중"
+            ProductStatus.SOLD -> "판매완료"
+        }
+        return when (val result = safeApiCall {
+            productApi.updateProductStatus(productId, ProductStatusUpdateDto(statusStr))
+        }) {
+            is ApiResult.Success -> UserResult.Success(Unit)
+            is ApiResult.Error -> UserResult.Error(result.message)
+        }
+    }
 
-    override suspend fun uploadProductImages(productId: Int, imageUris: List<String>): UserResult<Unit> =
-        mockFallback.uploadProductImages(productId, imageUris)
+    override suspend fun uploadProductImages(productId: Int, imageBytes: List<ByteArray>): UserResult<Unit> {
+        if (imageBytes.isEmpty()) return UserResult.Success(Unit)
+        val parts = imageBytes.mapIndexed { idx, bytes ->
+            val body = bytes.toRequestBody("image/jpeg".toMediaType())
+            MultipartBody.Part.createFormData("files", "image_$idx.jpg", body)
+        }
+        return when (val result = safeApiCall { productApi.uploadImages(productId, parts) }) {
+            is ApiResult.Success -> UserResult.Success(Unit)
+            is ApiResult.Error -> UserResult.Error(result.message)
+        }
+    }
 
     override suspend fun likeProduct(productId: Int): UserResult<Unit> =
         mockFallback.likeProduct(productId)
@@ -79,6 +129,10 @@ class RemoteProductRepository(
     override suspend fun unlikeProduct(productId: Int): UserResult<Unit> =
         mockFallback.unlikeProduct(productId)
 
-    override suspend fun searchProducts(query: String): UserResult<List<Product>> =
-        mockFallback.searchProducts(query)
+    override suspend fun searchProducts(query: String): UserResult<List<Product>> {
+        return when (val result = safeApiCall { productApi.getProducts(search = query) }) {
+            is ApiResult.Success -> UserResult.Success(result.data.map { it.toDomain() })
+            is ApiResult.Error -> UserResult.Error(result.message)
+        }
+    }
 }

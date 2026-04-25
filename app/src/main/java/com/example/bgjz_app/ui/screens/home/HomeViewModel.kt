@@ -32,11 +32,15 @@ class HomeViewModel(
     fun loadProducts() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
-            when (val result = repository.getProducts()) {
+            when (val result = repository.getProducts(limit = HOME_PRODUCT_LIMIT)) {
                 is UserResult.Success -> _uiState.update { it.copy(isLoading = false, products = result.data) }
                 is UserResult.Error -> _uiState.update { it.copy(isLoading = false, error = result.message) }
             }
         }
+    }
+
+    companion object {
+        private const val HOME_PRODUCT_LIMIT = 6
     }
 
     fun toggleLike(product: Product) {
