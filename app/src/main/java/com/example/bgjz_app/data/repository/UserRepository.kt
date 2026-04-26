@@ -12,4 +12,8 @@ interface UserRepository {
     suspend fun uploadAvatar(imageUri: String): UserResult<String>
     suspend fun changePassword(request: ChangePasswordRequest): UserResult<Unit>
     suspend fun deleteAccount(): UserResult<Unit>
+
+    // ── 관리자 전용 ──
+    suspend fun getAllUsers(): UserResult<List<UserProfile>>
+    suspend fun toggleUserAdmin(userId: String): UserResult<UserProfile>
 }

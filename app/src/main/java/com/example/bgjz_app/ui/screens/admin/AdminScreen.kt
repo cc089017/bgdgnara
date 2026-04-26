@@ -1,7 +1,5 @@
 package com.example.bgjz_app.ui.screens.admin
 
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -22,15 +20,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
@@ -41,12 +40,15 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -64,10 +66,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
-import com.example.bgjz_app.data.mock.MockData
+import com.example.bgjz_app.R
 import com.example.bgjz_app.data.mock.Product
 import com.example.bgjz_app.data.mock.ProductStatus
-import com.example.bgjz_app.data.mock.Seller
+import com.example.bgjz_app.data.model.Banner
+import com.example.bgjz_app.data.model.UserProfile
 import com.example.bgjz_app.ui.components.formatPrice
 import com.example.bgjz_app.ui.theme.BrandGray
 import com.example.bgjz_app.ui.theme.BrandLightGray
@@ -82,6 +85,20 @@ fun AdminScreen(
     val uiState by viewModel.uiState.collectAsState()
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("유저 관리", "상품 관리", "배너 관리")
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(uiState.message) {
+        uiState.message?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.consumeMessage()
+        }
+    }
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.consumeError()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -95,32 +112,69 @@ fun AdminScreen(
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = Color.White)
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = Color.White
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            TabRow(
-                selectedTabIndex = selectedTab,
-                containerColor = Color.White,
-                contentColor = BrandPurple
-            ) {
-                tabs.forEachIndexed { index, title ->
-                    Tab(
-                        selected = selectedTab == index,
-                        onClick = { selectedTab = index },
-                        text = { Text(title, fontSize = 14.sp) }
-                    )
+        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+            when {
+                uiState.accessDenied -> AccessDeniedView()
+                uiState.isLoading && uiState.users.isEmpty() && uiState.banners.isEmpty()
+                        && uiState.products.isEmpty() -> LoadingView()
+                else -> Column(modifier = Modifier.fillMaxSize()) {
+                    TabRow(
+                        selectedTabIndex = selectedTab,
+                        containerColor = Color.White,
+                        contentColor = BrandPurple
+                    ) {
+                        tabs.forEachIndexed { index, title ->
+                            Tab(
+                                selected = selectedTab == index,
+                                onClick = { selectedTab = index },
+                                text = { Text(title, fontSize = 14.sp) }
+                            )
+                        }
+                    }
+                    when (selectedTab) {
+                        0 -> UserManagementTab(uiState, viewModel)
+                        1 -> ProductManagementTab(uiState, viewModel)
+                        2 -> BannerManagementTab(uiState, viewModel)
+                    }
                 }
             }
-            when (selectedTab) {
-                0 -> UserManagementTab(uiState = uiState, viewModel = viewModel)
-                1 -> ProductManagementTab(uiState = uiState, viewModel = viewModel)
-                2 -> BannerUploadTab(uiState = uiState, viewModel = viewModel)
-            }
         }
+    }
+}
+
+// ─── 권한 없음 / 로딩 ───────────────────────────────────────
+
+@Composable
+private fun AccessDeniedView() {
+    Column(
+        modifier = Modifier.fillMaxSize().padding(32.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Icon(
+            Icons.Filled.Lock,
+            contentDescription = null,
+            tint = BrandGray,
+            modifier = Modifier.size(72.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+        Text("접근 권한이 없습니다", fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "관리자 권한이 있는 계정으로 로그인해주세요.",
+            fontSize = 13.sp,
+            color = BrandGray
+        )
+    }
+}
+
+@Composable
+private fun LoadingView() {
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        CircularProgressIndicator(color = BrandPurple)
     }
 }
 
@@ -128,7 +182,32 @@ fun AdminScreen(
 
 @Composable
 private fun UserManagementTab(uiState: AdminUiState, viewModel: AdminViewModel) {
-    val users = remember(uiState.userQuery) { viewModel.filteredUsers() }
+    val users = remember(uiState.userQuery, uiState.users) { viewModel.filteredUsers() }
+    var pendingToggle by remember { mutableStateOf<UserProfile?>(null) }
+
+    pendingToggle?.let { target ->
+        val grant = !target.isAdmin
+        AlertDialog(
+            onDismissRequest = { pendingToggle = null },
+            title = { Text(if (grant) "관리자 권한 부여" else "관리자 권한 해제", fontWeight = FontWeight.Bold) },
+            text = {
+                Text(
+                    "${target.nickname} (${target.id})\n${if (grant) "이 사용자를 관리자로 지정합니다." else "이 사용자의 관리자 권한을 해제합니다."}"
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.toggleUserAdmin(target.id)
+                    pendingToggle = null
+                }) {
+                    Text(if (grant) "권한 부여" else "권한 해제", color = BrandPurple, fontWeight = FontWeight.Bold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingToggle = null }) { Text("취소") }
+            }
+        )
+    }
 
     Column(modifier = Modifier.fillMaxSize()) {
         OutlinedTextField(
@@ -137,7 +216,7 @@ private fun UserManagementTab(uiState: AdminUiState, viewModel: AdminViewModel) 
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 12.dp),
-            placeholder = { Text("닉네임 · 지역 검색", color = BrandGray, fontSize = 14.sp) },
+            placeholder = { Text("닉네임 · 아이디 · 지역 검색", color = BrandGray, fontSize = 14.sp) },
             leadingIcon = { Icon(Icons.Filled.Search, null, tint = BrandGray) },
             singleLine = true,
             shape = RoundedCornerShape(12.dp),
@@ -155,9 +234,9 @@ private fun UserManagementTab(uiState: AdminUiState, viewModel: AdminViewModel) 
         LazyColumn(modifier = Modifier.fillMaxSize()) {
             items(users, key = { it.id }) { user ->
                 UserCard(
-                    seller = user,
-                    isBanned = user.id in uiState.bannedUserIds,
-                    onToggleBan = { viewModel.toggleBan(user.id) }
+                    user = user,
+                    isMe = user.id == uiState.currentUserId,
+                    onToggleClick = { pendingToggle = user }
                 )
                 HorizontalDivider(color = Color(0xFFF0F0F0))
             }
@@ -166,11 +245,10 @@ private fun UserManagementTab(uiState: AdminUiState, viewModel: AdminViewModel) 
 }
 
 @Composable
-private fun UserCard(seller: Seller, isBanned: Boolean, onToggleBan: () -> Unit) {
+private fun UserCard(user: UserProfile, isMe: Boolean, onToggleClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (isBanned) Color(0xFFFFF5F5) else Color.White)
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -181,46 +259,65 @@ private fun UserCard(seller: Seller, isBanned: Boolean, onToggleBan: () -> Unit)
                 .background(BrandLightGray),
             contentAlignment = Alignment.Center
         ) {
-            Image(
-                painter = painterResource(seller.avatarRes),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+            if (!user.avatarUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = user.avatarUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Icon(Icons.Filled.Person, contentDescription = null, tint = BrandGray)
+            }
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(seller.nickname, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
-                if (isBanned) {
+                Text(user.nickname, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                if (user.isAdmin) {
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        "정지됨",
+                        "관리자",
                         fontSize = 11.sp,
-                        color = Color.Red,
+                        color = BrandPurple,
                         modifier = Modifier
-                            .background(Color(0xFFFFE0E0), RoundedCornerShape(4.dp))
+                            .background(BrandPurple.copy(alpha = 0.12f), RoundedCornerShape(4.dp))
+                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+                if (isMe) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        "본인",
+                        fontSize = 11.sp,
+                        color = BrandGray,
+                        modifier = Modifier
+                            .background(BrandLightGray, RoundedCornerShape(4.dp))
                             .padding(horizontal = 6.dp, vertical = 2.dp)
                     )
                 }
             }
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                "${seller.region}  ·  매너점수 ${seller.mannerScore}",
+                "${user.id}  ·  ${user.region.orEmpty()}",
                 fontSize = 13.sp,
                 color = BrandGray
             )
         }
         OutlinedButton(
-            onClick = onToggleBan,
+            onClick = onToggleClick,
             shape = RoundedCornerShape(8.dp),
+            enabled = !isMe,
             colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = if (isBanned) BrandPurple else Color.Red
+                contentColor = if (user.isAdmin) Color.Red else BrandPurple
             ),
-            border = BorderStroke(1.dp, if (isBanned) BrandPurple else Color.Red),
+            border = BorderStroke(1.dp, if (isMe) Color(0xFFE0E0E0) else if (user.isAdmin) Color.Red else BrandPurple),
             modifier = Modifier.height(36.dp)
         ) {
-            Text(if (isBanned) "정지 해제" else "정지", fontSize = 13.sp)
+            Text(
+                if (user.isAdmin) "권한 해제" else "관리자 지정",
+                fontSize = 13.sp
+            )
         }
     }
 }
@@ -229,22 +326,19 @@ private fun UserCard(seller: Seller, isBanned: Boolean, onToggleBan: () -> Unit)
 
 @Composable
 private fun ProductManagementTab(uiState: AdminUiState, viewModel: AdminViewModel) {
-    val products = remember(
-        uiState.productQuery,
-        uiState.productStatusFilter,
-        uiState.deletedProductIds
-    ) { viewModel.filteredProducts() }
-
+    val products = remember(uiState.products, uiState.productStatusFilter) {
+        viewModel.filteredProducts()
+    }
     var productToDelete by remember { mutableStateOf<Int?>(null) }
 
-    if (productToDelete != null) {
+    productToDelete?.let { id ->
         AlertDialog(
             onDismissRequest = { productToDelete = null },
             title = { Text("상품 삭제", fontWeight = FontWeight.Bold) },
             text = { Text("이 상품을 삭제하시겠습니까?\n복구할 수 없습니다.") },
             confirmButton = {
                 TextButton(onClick = {
-                    viewModel.deleteProduct(productToDelete!!)
+                    viewModel.deleteProduct(id)
                     productToDelete = null
                 }) { Text("삭제", color = Color.Red, fontWeight = FontWeight.Bold) }
             },
@@ -277,9 +371,7 @@ private fun ProductManagementTab(uiState: AdminUiState, viewModel: AdminViewMode
             ProductStatus.SOLD to "판매완료"
         )
         LazyRow(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             items(filters) { (status, label) ->
@@ -312,7 +404,6 @@ private fun ProductManagementTab(uiState: AdminUiState, viewModel: AdminViewMode
 
 @Composable
 private fun ProductRow(product: Product, onDeleteClick: () -> Unit) {
-    val seller = MockData.sellers.find { it.id == product.sellerId }
     val (statusLabel, statusColor) = when (product.status) {
         ProductStatus.ON_SALE -> "판매중" to Color(0xFF4CAF50)
         ProductStatus.RESERVED -> "예약중" to Color(0xFFFF9800)
@@ -331,12 +422,21 @@ private fun ProductRow(product: Product, onDeleteClick: () -> Unit) {
                 .clip(RoundedCornerShape(8.dp))
                 .background(BrandLightGray)
         ) {
-            Image(
-                painter = painterResource(product.imageRes),
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop
-            )
+            if (!product.thumbnailUrl.isNullOrBlank()) {
+                AsyncImage(
+                    model = product.thumbnailUrl,
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            } else {
+                Image(
+                    painter = painterResource(product.imageRes),
+                    contentDescription = null,
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop
+                )
+            }
         }
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -363,7 +463,7 @@ private fun ProductRow(product: Product, onDeleteClick: () -> Unit) {
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 )
                 Text(
-                    "판매자: ${seller?.nickname ?: "-"}",
+                    "판매자: ${product.sellerId}",
                     fontSize = 12.sp,
                     color = BrandGray
                 )
@@ -378,124 +478,186 @@ private fun ProductRow(product: Product, onDeleteClick: () -> Unit) {
 // ─── 배너 관리 탭 ───────────────────────────────────────────
 
 @Composable
-private fun BannerUploadTab(uiState: AdminUiState, viewModel: AdminViewModel) {
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetMultipleContents()
-    ) { uris -> if (uris.isNotEmpty()) viewModel.addBannerUris(uris) }
+private fun BannerManagementTab(uiState: AdminUiState, viewModel: AdminViewModel) {
+    var imageUrl by remember { mutableStateOf("") }
+    var title by remember { mutableStateOf("") }
+    var linkUrl by remember { mutableStateOf("") }
+    var bannerToDelete by remember { mutableStateOf<Banner?>(null) }
+
+    bannerToDelete?.let { target ->
+        AlertDialog(
+            onDismissRequest = { bannerToDelete = null },
+            title = { Text("배너 삭제", fontWeight = FontWeight.Bold) },
+            text = { Text("'${target.title ?: "(제목 없음)"}' 배너를 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteBanner(target.id)
+                    bannerToDelete = null
+                }) { Text("삭제", color = Color.Red, fontWeight = FontWeight.Bold) }
+            },
+            dismissButton = {
+                TextButton(onClick = { bannerToDelete = null }) { Text("취소") }
+            }
+        )
+    }
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(horizontal = 16.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         item {
             Spacer(modifier = Modifier.height(12.dp))
-            Text("현재 배너", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            Spacer(modifier = Modifier.height(8.dp))
+            Text("현재 배너 (${uiState.banners.size}개)", fontWeight = FontWeight.Bold, fontSize = 15.sp)
         }
-        items(MockData.banners, key = { it.id }) { banner ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(BrandLightGray, RoundedCornerShape(10.dp))
-                    .padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+        if (uiState.banners.isEmpty()) {
+            item {
+                Text(
+                    "등록된 배너가 없습니다",
+                    fontSize = 13.sp,
+                    color = BrandGray,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+            }
+        }
+        items(uiState.banners, key = { it.id }) { banner ->
+            BannerRow(banner = banner, onDelete = { bannerToDelete = banner })
+        }
+        item {
+            Spacer(modifier = Modifier.height(8.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(12.dp))
+            Text("새 배너 등록", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "이미지는 외부 URL(CDN/이미지 호스팅)을 입력해주세요. 백엔드는 URL만 저장합니다.",
+                fontSize = 12.sp,
+                color = BrandGray
+            )
+        }
+        item {
+            OutlinedTextField(
+                value = imageUrl,
+                onValueChange = { imageUrl = it },
+                label = { Text("이미지 URL *") },
+                placeholder = { Text("https://...") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = BrandPurple)
+            )
+        }
+        item {
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = { Text("타이틀 (선택)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = BrandPurple)
+            )
+        }
+        item {
+            OutlinedTextField(
+                value = linkUrl,
+                onValueChange = { linkUrl = it },
+                label = { Text("이동할 링크 URL (선택)") },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = BrandPurple)
+            )
+        }
+        if (imageUrl.isNotBlank()) {
+            item {
+                Text("미리보기", fontSize = 13.sp, color = BrandGray)
+                Spacer(modifier = Modifier.height(4.dp))
                 Box(
                     modifier = Modifier
-                        .size(56.dp)
-                        .clip(RoundedCornerShape(6.dp))
+                        .fillMaxWidth()
+                        .height(140.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(BrandLightGray)
                 ) {
-                    Image(
-                        painter = painterResource(banner.imageRes),
-                        contentDescription = null,
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = "미리보기",
                         modifier = Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop
                     )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(banner.title, fontSize = 14.sp, fontWeight = FontWeight.Medium)
             }
         }
         item {
-            Spacer(modifier = Modifier.height(4.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(12.dp))
-            Text("새 배너 추가", fontWeight = FontWeight.Bold, fontSize = 15.sp)
-            Spacer(modifier = Modifier.height(8.dp))
-            OutlinedButton(
-                onClick = { launcher.launch("image/*") },
+            Button(
+                onClick = {
+                    viewModel.createBanner(
+                        imageUrl = imageUrl,
+                        title = title,
+                        linkUrl = linkUrl,
+                    )
+                    imageUrl = ""
+                    title = ""
+                    linkUrl = ""
+                },
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.outlinedButtonColors(contentColor = BrandPurple),
-                border = BorderStroke(1.dp, BrandPurple)
+                colors = ButtonDefaults.buttonColors(containerColor = BrandPurple),
+                enabled = imageUrl.isNotBlank()
             ) {
-                Icon(Icons.Filled.Add, null, modifier = Modifier.size(18.dp))
-                Spacer(modifier = Modifier.width(8.dp))
-                Text("갤러리에서 이미지 선택")
-            }
-        }
-        if (uiState.pendingBannerUris.isNotEmpty()) {
-            item {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    "선택된 이미지 ${uiState.pendingBannerUris.size}장",
-                    fontSize = 13.sp,
-                    color = BrandGray
-                )
-            }
-            items(uiState.pendingBannerUris, key = { it.toString() }) { uri ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    AsyncImage(
-                        model = uri,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .size(72.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        uri.lastPathSegment ?: "이미지",
-                        modifier = Modifier.weight(1f),
-                        fontSize = 13.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        color = BrandGray
-                    )
-                    IconButton(onClick = { viewModel.removeBannerUri(uri) }) {
-                        Icon(Icons.Filled.Close, contentDescription = "제거", tint = BrandGray)
-                    }
-                }
-            }
-            item {
-                Spacer(modifier = Modifier.height(4.dp))
-                Button(
-                    onClick = { viewModel.uploadBanners() },
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = BrandPurple),
-                    enabled = !uiState.uploadDone
-                ) {
-                    Text(
-                        if (uiState.uploadDone) "업로드 완료" else "업로드 (${uiState.pendingBannerUris.size}장)",
-                        color = Color.White
-                    )
-                }
-                if (uiState.uploadDone) {
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        "✓ 업로드 완료 — 백엔드 연결 시 POST /admin/upload 호출",
-                        fontSize = 12.sp,
-                        color = Color(0xFF4CAF50)
-                    )
-                }
+                Text("배너 등록", color = Color.White)
             }
         }
         item { Spacer(modifier = Modifier.height(24.dp)) }
+    }
+}
+
+@Composable
+private fun BannerRow(banner: Banner, onDelete: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(BrandLightGray, RoundedCornerShape(10.dp))
+            .padding(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(56.dp)
+                .clip(RoundedCornerShape(6.dp))
+                .background(Color.White)
+        ) {
+            AsyncImage(
+                model = banner.imageUrl,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                fallback = painterResource(R.drawable.ic_launcher_background),
+                error = painterResource(R.drawable.ic_launcher_background)
+            )
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                banner.title ?: "(제목 없음)",
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (!banner.linkUrl.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    banner.linkUrl,
+                    fontSize = 11.sp,
+                    color = BrandGray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+        IconButton(onClick = onDelete) {
+            Icon(Icons.Filled.Delete, contentDescription = "삭제", tint = Color(0xFFE53935))
+        }
     }
 }

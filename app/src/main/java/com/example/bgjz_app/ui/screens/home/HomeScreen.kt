@@ -52,8 +52,11 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
+import coil.compose.AsyncImage
+import com.example.bgjz_app.R
 import com.example.bgjz_app.data.mock.MockData
 import com.example.bgjz_app.data.mock.Product
+import com.example.bgjz_app.data.model.Banner
 import com.example.bgjz_app.ui.components.BottomNavBar
 import com.example.bgjz_app.ui.components.ProductCard
 import com.example.bgjz_app.ui.navigation.Route
@@ -96,7 +99,7 @@ fun HomeScreen(
                 .verticalScroll(rememberScrollState())
         ) {
             HomeTopBar(onAdminClick = onAdminClick)
-            BannerCarousel()
+            BannerCarousel(banners = uiState.banners)
             Spacer(modifier = Modifier.height(20.dp))
             ShortcutRow(navController = navController)
             Spacer(modifier = Modifier.height(24.dp))
@@ -138,11 +141,15 @@ private fun HomeTopBar(onAdminClick: () -> Unit) {
 }
 
 @Composable
-private fun BannerCarousel() {
-    val banners = MockData.banners
+private fun BannerCarousel(banners: List<Banner>) {
+    if (banners.isEmpty()) {
+        PlaceholderBanner()
+        return
+    }
     val pagerState = rememberPagerState(pageCount = { banners.size })
 
-    LaunchedEffect(pagerState) {
+    LaunchedEffect(banners.size) {
+        if (banners.size <= 1) return@LaunchedEffect
         while (true) {
             delay(3500)
             val next = (pagerState.currentPage + 1) % banners.size
@@ -157,25 +164,28 @@ private fun BannerCarousel() {
             contentPadding = PaddingValues(horizontal = 16.dp),
             pageSpacing = 12.dp
         ) { page ->
+            val banner = banners[page]
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
                     .background(BrandLightGray)
             ) {
-                Image(
-                    painter = painterResource(id = banners[page].imageRes),
-                    contentDescription = banners[page].title,
+                AsyncImage(
+                    model = banner.imageUrl,
+                    contentDescription = banner.title,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop
                 )
-                Text(
-                    text = banners[page].title,
-                    color = Color.White,
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.align(Alignment.BottomStart).padding(20.dp)
-                )
+                if (!banner.title.isNullOrBlank()) {
+                    Text(
+                        text = banner.title,
+                        color = Color.White,
+                        fontSize = 22.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.align(Alignment.BottomStart).padding(20.dp)
+                    )
+                }
             }
         }
         Row(
@@ -193,6 +203,32 @@ private fun BannerCarousel() {
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun PlaceholderBanner() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(220.dp)
+            .padding(horizontal = 16.dp)
+            .clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp))
+            .background(BrandLightGray)
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.ic_launcher_background),
+            contentDescription = "기본 배너",
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
+        Text(
+            text = "번개당근나라",
+            color = Color.White,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.align(Alignment.BottomStart).padding(20.dp)
+        )
     }
 }
 

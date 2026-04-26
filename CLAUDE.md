@@ -12,8 +12,9 @@
    - 코드를 하나에 몰아넣지 말고 기능별로 모듈화
 
 4. **Mock → Remote 점진적 교체**
-   - 현재 백엔드 일부 연결 중 (인증 + 상품 목록/상세 = Phase 1 완료)
-   - 아직 백엔드 미구현 기능(찜/등록/수정/검색/채팅/관리자 등)은 Mock 유지
+   - Phase 1 완료: 인증 + 유저 프로필 + 상품 CRUD/검색/이미지업로드/상태변경
+   - Phase 2 완료: 배너 + 관리자(유저 권한 토글/상품 관리/배너 등록·삭제)
+   - 아직 백엔드 미구현 기능(찜/채팅/아바타 업로드/리뷰)은 Mock 유지
    - Phase별로 `RemoteXxxRepository` 추가하며 ViewModel 생성자 교체
 
 5. **로컬 테스트 방식: 실기기 + USB (고정)**
@@ -43,9 +44,71 @@
 - **프레임워크**: Python + FastAPI
 - **DB**: MySQL + SQLAlchemy ORM
 - **인증**: JWT (access + refresh), bcrypt 해싱
-- **파일 구조**: `main.py`, `database.py`, `models.py`, `schemas.py`, `core/security.py`, `routers/{auth,products,users,misc}.py`
+- **파일 구조**: `main.py`, `database.py`, `models.py`, `schemas.py`, `core/security.py`, `routers/{auth,products,users,misc,banners}.py`
 
 **중요**: Pydantic 필드명(snake_case)과 Android DTO 필드명 매핑은 `@SerializedName`으로 처리. 도메인 모델은 camelCase 유지.
+
+---
+
+## 작업 요약 (2026-04-26 — 백엔드 연동 Phase 2: 배너 + 관리자)
+
+### 범위
+1. 홈 화면 배너를 `GET /banners` 백엔드 데이터로 교체
+2. 관리자 화면(유저/상품/배너 관리) 전체를 Mock에서 백엔드로 교체
+3. AdminScreen 진입 시 본인이 관리자가 아니면 **"접근 권한이 없습니다"** 즉시 차단
+
+### 백엔드 변경
+없음. **옵션 A — 백엔드 무수정 원칙**으로 결정. 백엔드 모델/엔드포인트는 그대로 두고 앱만 수정.
+
+### Android 신규
+**배너**
+- `data/model/BannerModel.kt` — `Banner(id, imageUrl, linkUrl, title)` 도메인 모델
+- `data/remote/dto/BannerDto.kt` — `BannerResponseDto`, `BannerCreateDto`
+- `data/remote/api/BannerApi.kt` — `GET /banners`, `POST /banners`(관리자), `DELETE /banners/{id}`(관리자)
+- `data/repository/BannerRepository.kt` — 인터페이스
+- `data/repository/remote/RemoteBannerRepository.kt` — 실제 구현
+
+### Android 수정
+**공용**
+- `data/remote/dto/UserDto.kt` — `UserResponseDto`에 `is_admin` 필드 추가 (백엔드는 보냈으나 누락돼 있던 매핑)
+- `data/model/UserModel.kt` — `UserProfile.isAdmin` 추가
+- `data/remote/Mapper.kt` — `absoluteUrl()`이 `http(s)://` 시작 URL은 통과시키도록 보강 (배너는 외부 CDN URL 가능), `BannerResponseDto.toDomain()` 추가, `UserResponseDto.toDomain()`에 isAdmin 매핑
+- `data/remote/RetrofitClient.kt` — `bannerApi` 노출
+- `data/remote/api/UserApi.kt` — `getAllUsers()`, `toggleUserAdmin(userId)` 추가
+- `data/repository/UserRepository.kt` + Mock + Remote — 위 두 메서드 인터페이스/구현 추가
+
+**홈 배너**
+- `HomeViewModel.kt` — `BannerRepository` 주입, `HomeUiState.banners` 추가, `loadBanners()` (실패 시 화면 에러로 안 띄우고 무시)
+- `HomeScreen.kt` — `BannerCarousel(banners: List<Banner>)`로 교체, Coil `AsyncImage`로 URL 로드. **배너 0개일 때는 `PlaceholderBanner()` (drawable + "번개당근나라" 타이틀) 표시**
+
+**관리자 화면 (전면 재작성)**
+- `AdminViewModel.kt`:
+  - 의존성: `UserRepository`, `ProductRepository`, `BannerRepository` (모두 Remote)
+  - `init`에서 `getMyProfile()` 호출 → `isAdmin=false`면 `accessDenied=true`로 즉시 차단 (데이터 로드 안 함)
+  - 본인 권한 토글 차단 (클라/백엔드 둘 다)
+  - 상품 검색은 `searchProducts()` 백엔드 호출, 상태 필터(`판매중/예약중/판매완료`)는 클라이언트에서 (백엔드에 status 쿼리 없음)
+  - 메시지/에러 → Snackbar용 1회성 상태 (`message`, `error`, `consumeMessage/consumeError`)
+- `AdminScreen.kt`:
+  - `accessDenied=true` → 자물쇠 아이콘 + "접근 권한이 없습니다" 화면만 표시
+  - 유저 탭: 매너점수 제거(백엔드에 없음), 닉네임/아이디/지역 클라 검색, 관리자 배지 표시, **"관리자 지정 ↔ 권한 해제"** 토글(AlertDialog 확인), 본인은 비활성
+  - 상품 탭: 백엔드 검색, 상태 FilterChip 필터, 삭제 시 `DELETE /products/{id}` (백엔드가 관리자 권한 통과시킴)
+  - 배너 탭: 갤러리 launcher 제거, **이미지 URL/타이틀/링크URL 텍스트 입력 폼 + 미리보기 + 등록 버튼**, 기존 배너 카드에 삭제 버튼
+
+### UX 결정 (옵션 A — 모두 백엔드 무수정)
+| 탭 | 기존 (Mock) | 신규 (Remote) | 이유 |
+|---|---|---|---|
+| 유저 관리 | "정지/해제" 버튼 | "관리자 지정/권한 해제" 토글 | 백엔드에 `is_suspended` 컬럼 자체가 없음 → `PATCH /users/{id}/admin`로 대체 |
+| 상품 관리 | 클라 필터링 | 검색은 백엔드, 상태 필터는 클라 | 백엔드 `GET /products`에 status 쿼리 없음 |
+| 배너 관리 | 갤러리 다중선택 + "업로드" | URL 입력 폼 + 등록 + 삭제 | 백엔드는 `image_url` 텍스트만 받음, 바이너리 업로드 엔드포인트/정적 파일 서빙 모두 없음 |
+
+### 테스트 방법
+1. 백엔드 실행 + `adb reverse tcp:8000 tcp:8000`
+2. **관리자 계정 만들기**: `add_admin_column.py` 또는 DB에서 `UPDATE users SET is_admin = 1 WHERE user_id = 'xxx';`
+3. Swagger에서 `POST /banners`로 배너 시드(외부 URL 사용, 예: `https://picsum.photos/800/400?random=1`)
+4. 앱 → 홈 → 배너 슬라이드 표시 확인 (시드 없으면 placeholder 1장)
+5. 홈 → "번개당근나라" 텍스트 클릭 → AdminScreen
+   - 비관리자 계정: "접근 권한이 없습니다" 화면
+   - 관리자 계정: 3탭 정상 동작
 
 ---
 
@@ -90,49 +153,13 @@
 3. 앱 실행 → 회원가입 → 로그인 → 홈/상세 확인
 4. Swagger(`http://localhost:8000/docs`)에서 상품/이미지 테스트 데이터 넣으면 앱에 바로 반영
 
-### Phase 1 범위 밖 (Mock 유지)
+### Phase 1 범위 밖 (작성 시점 기준 — 일부는 이후 Phase에서 완료됨)
 찜(like/unlike/liked목록), 상품 등록/수정/삭제, 상품 상태 변경, 상품 이미지 업로드, 검색, 아바타 업로드, 채팅, 관리자, 배너
+> ※ 이후 작업으로 상품 CRUD/상태/이미지/검색은 Remote 완료, 관리자/배너는 Phase 2에서 완료. 현재 잔존 Mock: 찜/채팅/아바타 업로드
 
 ---
 
-## 작업 요약 (2026-04-23 추가 3 — 채팅)
-
-### 채팅 (Chat)
-- `MockData.kt` — `ChatMessage`, `ChatRoom` 데이터 클래스 추가 + 목 채팅방/메시지 데이터
-- `ChatViewModel.kt` — 채팅방 목록 + 마지막 메시지 조회
-- `ChatRoomViewModel.kt` — 특정 채팅방 메시지 로드 + 로컬 메시지 전송 (factory 패턴)
-- `ChatListScreen.kt` — 채팅방 목록 (아바타, 닉네임, 마지막 메시지, 안 읽은 수 배지), 하단 네비게이션 바 포함
-- `ChatRoomScreen.kt` — 채팅방 (상품 정보 바, 말풍선 메시지 목록, 이미지 첨부 + 전송 입력창)
-- `BottomNavBar.kt` — CHAT 탭 라우트 `Route.ChatList.path` 로 수정
-- `ProductDetailScreen.kt` — "채팅하기" 버튼 `onChatClick` 콜백 연결
-
----
-
-## 작업 요약 (2026-04-23 추가 2)
-
-### 검색 (Search)
-- `ProductRepository.kt` — `searchProducts(query: String)` 메서드 추가
-- `MockProductRepository.kt` — 상품명 기준 contains 필터 구현
-- `SearchViewModel.kt` — debounce(300ms) + distinctUntilChanged 실시간 검색
-- `SearchScreen.kt` — 검색창 + 결과 그리드 + 빈 결과/힌트 상태 처리, 하단 네비게이션 바 포함
-- `BottomNavBar.kt` — SEARCH 탭 라우트 `Route.Search.path` 로 수정 (기존 오류 수정)
-
-### 관리자 (Admin)
-- `AdminViewModel.kt` — 유저 검색·정지, 상품 검색·필터·삭제, 배너 이미지 URI 관리
-- `AdminScreen.kt` — TabRow 3탭 구성
-  - 유저 관리: 닉네임·지역 검색 + LazyColumn + 정지/해제 버튼
-  - 상품 관리: 상품명 검색 + 상태 FilterChip + LazyColumn + 삭제 AlertDialog
-  - 배너 관리: 현재 배너 목록 + 갤러리 다중선택 + 미리보기 + 업로드 버튼 (POST /admin/upload 예정)
-- 진입점: 홈 화면 "번개당근나라" 텍스트 클릭 → AdminScreen (추후 admin_id 권한 체크 예정)
-
----
-
-### 타 유저 프로필 (UserProfile)
-- `UserProfileScreen.kt` — 타 유저 프로필 화면 (아바타, 닉네임, 지역, 판매 상품 그리드)
-- `UserProfileViewModel.kt` — 타 유저 프로필 + 상품 목록 로드 (`getPublicProfile`, `getProductsByUser`)
-- `UserRepository.kt` — `getPublicProfile(userId)` 인터페이스 추가
-- `ProductRepository.kt` — `getProductsByUser(userId)` 인터페이스 추가
-- `MockUserRepository.kt`, `MockProductRepository.kt` — 위 메서드 Mock 구현 추가
+## 인프라 (보안 / 빌드 설정)
 
 ### 백엔드 연결 준비
 - `res/raw/server.crt` — 서버 SSL 인증서
@@ -227,38 +254,43 @@ app/src/main/
     │   │
     │   ├── model/                              # 앱 도메인 모델 (UI가 직접 사용)
     │   │   ├── AuthModel.kt                    # LoginRequest, RegisterRequest(phoneNum/region 포함), AuthToken, AuthResult
-    │   │   ├── UserModel.kt                    # UserProfile(phoneNum), UpdateProfileRequest, ChangePasswordRequest, UserResult
-    │   │   └── ProductModel.kt                 # RegisterProductRequest, ProductDetail(thumbnailUrl, imageUrls)
+    │   │   ├── UserModel.kt                    # UserProfile(phoneNum, isAdmin), UpdateProfileRequest, ChangePasswordRequest, UserResult
+    │   │   ├── ProductModel.kt                 # RegisterProductRequest, ProductDetail(thumbnailUrl, imageUrls)
+    │   │   └── BannerModel.kt                  # Banner(id, imageUrl, linkUrl, title)
     │   │
-    │   ├── remote/                             # Retrofit 네트워크 인프라 (Phase 1)
+    │   ├── remote/                             # Retrofit 네트워크 인프라
     │   │   ├── TokenStorage.kt                 # DataStore 기반 JWT 저장/읽기/삭제
     │   │   ├── AuthInterceptor.kt              # Authorization: Bearer 자동 주입
-    │   │   ├── RetrofitClient.kt               # Retrofit/OkHttp 싱글톤
+    │   │   ├── RetrofitClient.kt               # Retrofit/OkHttp 싱글톤 (authApi/userApi/productApi/bannerApi)
     │   │   ├── ApiCall.kt                      # safeApiCall + ApiResult + FastAPI detail 파싱
-    │   │   ├── Mapper.kt                       # DTO → Domain 변환 + 절대 URL 생성
+    │   │   ├── Mapper.kt                       # DTO → Domain 변환 + 절대 URL 생성 (http(s):// 통과)
     │   │   ├── api/
     │   │   │   ├── AuthApi.kt                  # /auth/{login,register,logout,refresh,password/change}
-    │   │   │   ├── UserApi.kt                  # /users/{me, {user_id}, {user_id}/products}
-    │   │   │   └── ProductApi.kt               # /products, /products/me, /products/{id}
+    │   │   │   ├── UserApi.kt                  # /users/{me, {user_id}, {user_id}/products, getAllUsers, toggleUserAdmin}
+    │   │   │   ├── ProductApi.kt               # /products, /products/me, /products/{id}, 검색/등록/수정/삭제/이미지/상태
+    │   │   │   └── BannerApi.kt                # GET/POST/DELETE /banners
     │   │   └── dto/                            # 서버와 주고받는 JSON 모양 (@SerializedName)
     │   │       ├── AuthDto.kt                  # LoginRequestDto, LoginResponseDto, RegisterRequestDto 등
-    │   │       ├── UserDto.kt                  # UserResponseDto, UserUpdateDto
-    │   │       └── ProductDto.kt               # ProductResponseDto, ProductDetailResponseDto
+    │   │       ├── UserDto.kt                  # UserResponseDto(is_admin 포함), UserUpdateDto
+    │   │       ├── ProductDto.kt               # ProductResponseDto, ProductDetailResponseDto, ProductCreate/Update/StatusUpdate
+    │   │       └── BannerDto.kt                # BannerResponseDto, BannerCreateDto
     │   │
     │   └── repository/
     │       ├── AuthRepository.kt               # 인증 API 인터페이스 (login, register, logout, refreshToken)
-    │       ├── UserRepository.kt               # 유저 API 인터페이스 (getMyProfile, updateMyProfile, uploadAvatar, changePassword, deleteAccount, getPublicProfile)
-    │       ├── ProductRepository.kt            # 상품 API 인터페이스 (getProducts, getProductById, getMyProducts, getLikedProducts, getProductsByUser, registerProduct, updateProduct, deleteProduct, updateProductStatus, uploadProductImages, likeProduct, unlikeProduct)
+    │       ├── UserRepository.kt               # 유저 API (getMyProfile, ..., 관리자: getAllUsers, toggleUserAdmin)
+    │       ├── ProductRepository.kt            # 상품 API (CRUD + 좋아요 + 상태변경 + 검색 + getProductsByUser)
+    │       ├── BannerRepository.kt             # 배너 API (getActiveBanners, createBanner, deleteBanner)
     │       │
     │       ├── mock/                           # Mock 구현 — 백엔드 미구현 기능들이 아직 씀
     │       │   ├── MockAuthRepository.kt
-    │       │   ├── MockUserRepository.kt
+    │       │   ├── MockUserRepository.kt       # 관리자 메서드는 stub (Error 반환)
     │       │   └── MockProductRepository.kt
     │       │
-    │       └── remote/                         # Retrofit 구현 — Phase 1에서 활성화
+    │       └── remote/                         # Retrofit 구현
     │           ├── RemoteAuthRepository.kt     # login/register/logout/refresh/passwordChange 전체 연결
-    │           ├── RemoteUserRepository.kt     # 아바타 업로드 제외 전체 연결
-    │           └── RemoteProductRepository.kt  # 목록/상세/내상품/유저상품 연결, 나머지는 Mock 위임
+    │           ├── RemoteUserRepository.kt     # 아바타 업로드 제외 전체 + 관리자(getAllUsers/toggleUserAdmin) 연결
+    │           ├── RemoteProductRepository.kt  # 목록/상세/내상품/유저상품/검색/등록/수정/삭제/상태변경/이미지업로드 연결, 찜만 Mock 위임
+    │           └── RemoteBannerRepository.kt   # 조회/등록/삭제 전체 연결
     │
     ├── security/
     │   └── RootDetector.kt                     # 루팅 탐지 Kotlin 래퍼 (네이티브 호출 + 패키지 검사)
@@ -286,9 +318,9 @@ app/src/main/
         │   │   ├── ChatListScreen.kt
         │   │   └── ChatRoomScreen.kt
         │   │
-        │   ├── admin/                          # Mock 유지
-        │   │   ├── AdminViewModel.kt
-        │   │   └── AdminScreen.kt
+        │   ├── admin/                          # Remote 사용 (Phase 2)
+        │   │   ├── AdminViewModel.kt           # 진입 시 isAdmin 체크 → 비관리자 차단, 유저/상품/배너 관리
+        │   │   └── AdminScreen.kt              # 권한 차단 화면 + 3탭 (유저/상품/배너)
         │   │
         │   ├── home/
         │   │   ├── HomeViewModel.kt            # RemoteProductRepository 사용
@@ -308,8 +340,8 @@ app/src/main/
         │   │   ├── UserProfileViewModel.kt     # Remote* 사용
         │   │   └── UserProfileScreen.kt
         │   │
-        │   ├── search/                         # Mock 유지 (검색 백엔드 미구현)
-        │   │   ├── SearchViewModel.kt
+        │   ├── search/                         # Remote 사용 (RemoteProductRepository.searchProducts → /products?search=)
+        │   │   ├── SearchViewModel.kt          # 통합 검색(/search)으로 교체는 Phase 3 예정
         │   │   └── SearchScreen.kt
         │   │
         │   └── product/
@@ -327,17 +359,18 @@ app/src/main/
             └── Type.kt
 
 C2CBackendA-main/C2CBackendA-main/              # FastAPI 백엔드
-├── main.py                                     # app 생성, /auth/register, 헬스체크
+├── main.py                                     # app 생성, /auth/register, 헬스체크, banners 라우터 등록
 ├── database.py                                 # SQLAlchemy 엔진 + get_db 의존성
-├── models.py                                   # User, Product(+thumbnail_url property), ProductImage, Admin, RefreshToken
-├── schemas.py                                  # Pydantic DTO (ProductDetailResponse 포함)
+├── models.py                                   # User(is_admin), Product(+thumbnail_url property), ProductImage, Admin, RefreshToken, Banner
+├── schemas.py                                  # Pydantic DTO (ProductDetailResponse, BannerResponse/Create 포함)
 ├── core/
 │   └── security.py                             # bcrypt, JWT 발급/검증
 └── routers/
     ├── auth.py                                 # login/logout/refresh/password-change
-    ├── products.py                             # 목록/단일상세/이미지서빙/등록/수정/삭제/검색
-    ├── users.py                                # 프로필 조회/수정/탈퇴
-    └── misc.py                                 # 카테고리/지역/공지 (일부 mock)
+    ├── products.py                             # 목록/단일상세/이미지서빙/등록/수정/삭제/검색/related
+    ├── users.py                                # 프로필 조회/수정/탈퇴, /users(전체조회·관리자), PATCH /users/{id}/admin
+    ├── misc.py                                 # 카테고리/지역/공지 (일부 mock)
+    └── banners.py                              # GET (Public) / POST·DELETE (관리자)
 ```
 
 ---
@@ -350,12 +383,20 @@ C2CBackendA-main/C2CBackendA-main/              # FastAPI 백엔드
 | 내 프로필 조회/수정/탈퇴, 타 유저 프로필 | ✅ Remote | `RemoteUserRepository` |
 | 상품 목록/단일 상세/내 상품/유저별 상품 | ✅ Remote | `RemoteProductRepository` |
 | 상품 이미지 서빙 (GET) | ✅ Remote | `/products/{id}/images/{order}` 바이너리 |
-| 아바타 업로드 | ⬜ Phase 2 | 백엔드 엔드포인트 미구현 |
-| 상품 등록/수정/삭제/상태변경/이미지업로드 | 🔧 Mock | UI만 있음, Remote 미교체 |
+| 상품 등록/수정/삭제/상태변경/이미지업로드 | ✅ Remote | `RemoteProductRepository` |
+| 상품명 검색 (Phase 3에서 통합 검색으로 교체 예정) | ✅ Remote | `/products?search=` |
+| 배너 조회 (홈) | ✅ Remote | `RemoteBannerRepository.getActiveBanners` |
+| 관리자: 유저 권한 토글 | ✅ Remote | `RemoteUserRepository.toggleUserAdmin` |
+| 관리자: 전체 유저 조회 | ✅ Remote | `RemoteUserRepository.getAllUsers` |
+| 관리자: 상품 삭제 (타인 상품) | ✅ Remote | `RemoteProductRepository.deleteProduct` |
+| 관리자: 배너 등록/삭제 (URL 입력) | ✅ Remote | `RemoteBannerRepository.createBanner/deleteBanner` |
+| 아바타 업로드 | ⬜ 미구현 | 백엔드 엔드포인트 미구현 |
 | 찜 (like/unlike/getLiked) | 🔧 Mock | 백엔드 테이블 미구현 |
-| 검색 | 🔧 Mock | 백엔드 `/search` 있지만 Remote 미교체 |
 | 채팅 | 🔧 Mock | 백엔드 전체 미구현 |
-| 관리자 (유저정지/상품관리/배너) | 🔧 Mock | 백엔드 전체 미구현 |
+| 통합 검색 `/search` (상품 + 유저) | ⬜ 미연결 | 백엔드 있음, Phase 3 대상 |
+| 연관 상품 `/products/{id}/related` | ⬜ 미연결 | 백엔드 있음, Phase 3 대상 |
+| 유저 정지 (is_suspended) | ❌ 컬럼 자체 없음 | 관리자 권한 토글로 대체 |
+| 배너 이미지 바이너리 업로드 | ❌ 엔드포인트 없음 | URL 입력 방식 사용 |
 
 ### 새 기능을 Remote로 승격할 때
 1. 백엔드 엔드포인트 확인 후 `data/remote/api/XxxApi.kt`에 메서드 추가

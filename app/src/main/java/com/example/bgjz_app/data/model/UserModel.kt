@@ -8,6 +8,7 @@ data class UserProfile(
     val avatarUrl: String?,
     val region: String?,
     val phoneNum: String? = null,
+    val isAdmin: Boolean = false,
 )
 
 data class UpdateProfileRequest(

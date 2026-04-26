@@ -27,4 +27,12 @@ interface UserApi {
 
     @GET("users/{user_id}/products")
     suspend fun getUserProducts(@Path("user_id") userId: String): Response<List<ProductResponseDto>>
+
+    /** 관리자 전용: 전체 유저 목록 */
+    @GET("users")
+    suspend fun getAllUsers(): Response<List<UserResponseDto>>
+
+    /** 관리자 전용: 관리자 권한 토글 */
+    @PATCH("users/{user_id}/admin")
+    suspend fun toggleUserAdmin(@Path("user_id") userId: String): Response<UserResponseDto>
 }

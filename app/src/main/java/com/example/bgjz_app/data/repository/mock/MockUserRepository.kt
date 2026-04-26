@@ -65,4 +65,10 @@ class MockUserRepository : UserRepository {
         delay(600)
         return UserResult.Success(Unit)
     }
+
+    override suspend fun getAllUsers(): UserResult<List<UserProfile>> =
+        UserResult.Error("Mock: 관리자 기능 미구현")
+
+    override suspend fun toggleUserAdmin(userId: String): UserResult<UserProfile> =
+        UserResult.Error("Mock: 관리자 기능 미구현")
 }

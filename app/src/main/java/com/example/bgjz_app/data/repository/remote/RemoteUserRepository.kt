@@ -67,4 +67,18 @@ class RemoteUserRepository(
             is ApiResult.Error -> UserResult.Error(result.message)
         }
     }
+
+    override suspend fun getAllUsers(): UserResult<List<UserProfile>> {
+        return when (val result = safeApiCall { userApi.getAllUsers() }) {
+            is ApiResult.Success -> UserResult.Success(result.data.map { it.toDomain() })
+            is ApiResult.Error -> UserResult.Error(result.message)
+        }
+    }
+
+    override suspend fun toggleUserAdmin(userId: String): UserResult<UserProfile> {
+        return when (val result = safeApiCall { userApi.toggleUserAdmin(userId) }) {
+            is ApiResult.Success -> UserResult.Success(result.data.toDomain())
+            is ApiResult.Error -> UserResult.Error(result.message)
+        }
+    }
 }

@@ -3,6 +3,7 @@ package com.example.bgjz_app.data.remote
 import android.content.Context
 import com.example.bgjz_app.BuildConfig
 import com.example.bgjz_app.data.remote.api.AuthApi
+import com.example.bgjz_app.data.remote.api.BannerApi
 import com.example.bgjz_app.data.remote.api.ProductApi
 import com.example.bgjz_app.data.remote.api.UserApi
 import okhttp3.OkHttpClient
@@ -25,6 +26,7 @@ object RetrofitClient {
     val authApi: AuthApi by lazy { retrofit.create(AuthApi::class.java) }
     val userApi: UserApi by lazy { retrofit.create(UserApi::class.java) }
     val productApi: ProductApi by lazy { retrofit.create(ProductApi::class.java) }
+    val bannerApi: BannerApi by lazy { retrofit.create(BannerApi::class.java) }
 
     val baseUrl: String get() = BuildConfig.BASE_URL
 

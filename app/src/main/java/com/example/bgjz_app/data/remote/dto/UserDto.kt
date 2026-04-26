@@ -9,6 +9,7 @@ data class UserResponseDto(
     @SerializedName("phone_num") val phoneNum: String? = null,
     @SerializedName("email") val email: String? = null,
     @SerializedName("region") val region: String,
+    @SerializedName("is_admin") val isAdmin: Boolean = false,
 )
 
 /** PATCH /users/me 요청 */

@@ -3,8 +3,10 @@ package com.example.bgjz_app.data.remote
 import com.example.bgjz_app.R
 import com.example.bgjz_app.data.mock.Product
 import com.example.bgjz_app.data.mock.ProductStatus
+import com.example.bgjz_app.data.model.Banner
 import com.example.bgjz_app.data.model.ProductDetail
 import com.example.bgjz_app.data.model.UserProfile
+import com.example.bgjz_app.data.remote.dto.BannerResponseDto
 import com.example.bgjz_app.data.remote.dto.ProductDetailResponseDto
 import com.example.bgjz_app.data.remote.dto.ProductResponseDto
 import com.example.bgjz_app.data.remote.dto.UserResponseDto
@@ -23,11 +25,12 @@ private fun parseProductStatus(status: String): ProductStatus = when (status) {
     else -> ProductStatus.ON_SALE
 }
 
-/** 상대경로 썸네일을 절대 URL로. null이면 null 유지. */
-private fun absoluteUrl(relativePath: String?): String? {
-    if (relativePath.isNullOrBlank()) return null
+/** 상대경로면 BASE_URL을 붙이고, 이미 절대 URL(http/https)이면 그대로. null/blank → null. */
+private fun absoluteUrl(value: String?): String? {
+    if (value.isNullOrBlank()) return null
+    if (value.startsWith("http://") || value.startsWith("https://")) return value
     val base = RetrofitClient.baseUrl.trimEnd('/')
-    val path = if (relativePath.startsWith("/")) relativePath else "/$relativePath"
+    val path = if (value.startsWith("/")) value else "/$value"
     return "$base$path"
 }
 
@@ -64,6 +67,15 @@ fun ProductDetailResponseDto.toDomain(): ProductDetail = ProductDetail(
     imageUrls = imageUrls.mapNotNull { absoluteUrl(it) },
 )
 
+// ── Banner ─────────────────────────────────────────────────
+
+fun BannerResponseDto.toDomain(): Banner = Banner(
+    id = id,
+    imageUrl = absoluteUrl(imageUrl).orEmpty(),
+    linkUrl = linkUrl,
+    title = title,
+)
+
 // ── User ───────────────────────────────────────────────────
 
 fun UserResponseDto.toDomain(): UserProfile = UserProfile(
@@ -74,4 +86,5 @@ fun UserResponseDto.toDomain(): UserProfile = UserProfile(
     avatarUrl = null,  // 백엔드 profile_img 서빙 엔드포인트 추후 추가 시 매핑
     region = region,
     phoneNum = phoneNum,
+    isAdmin = isAdmin,
 )
